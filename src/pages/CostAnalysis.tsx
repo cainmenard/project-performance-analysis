@@ -2,7 +2,8 @@ import { useProjectData } from '@/hooks/useProjectData';
 import { CostComparisonChart, CostVarianceChart } from '@/components/charts/CostBreakdownChart';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend, PieChart, Pie, Cell } from 'recharts';
 import type { PieLabelRenderProps } from 'recharts';
-import { formatCurrency, formatNumber } from '@/lib/formatters';
+import { formatCurrency, formatNumber, formatPercent } from '@/lib/formatters';
+import { Eye } from 'lucide-react';
 
 const COLORS = ['var(--color-chart-1)', 'var(--color-chart-2)', 'var(--color-chart-3)', 'var(--color-chart-4)', 'var(--color-chart-5)'];
 
@@ -94,6 +95,43 @@ function LaborHoursChart({ projects }: { projects: import('@/lib/types').Project
   );
 }
 
+function CostExecutiveCallout({ projects }: { projects: import('@/lib/types').ProjectRecord[] }) {
+  const totalOrigCost = projects.reduce((s, p) => s + p.originalEstimatedCost, 0);
+  const totalFinalCost = projects.reduce((s, p) => s + p.finalCost, 0);
+  const variance = totalFinalCost - totalOrigCost;
+  const variancePct = totalOrigCost > 0 ? variance / totalOrigCost : 0;
+
+  // Find the biggest cost overrun category
+  const categories = [
+    { name: 'Labor', orig: projects.reduce((s, p) => s + p.originalEstimatedLabor, 0), final: projects.reduce((s, p) => s + p.finalLabor, 0) },
+    { name: 'Materials', orig: projects.reduce((s, p) => s + p.originalEstimatedMaterials, 0), final: projects.reduce((s, p) => s + p.finalMaterials, 0) },
+    { name: 'Equipment', orig: projects.reduce((s, p) => s + p.originalEstimatedEquipment, 0), final: projects.reduce((s, p) => s + p.finalEquipment, 0) },
+    { name: 'Subcontracts', orig: projects.reduce((s, p) => s + p.originalEstimatedSubcontracts, 0), final: projects.reduce((s, p) => s + p.finalSubcontracts, 0) },
+  ].map((c) => ({ ...c, variance: c.final - c.orig }));
+
+  const worstCategory = categories.reduce((a, b) => (a.variance > b.variance ? a : b));
+
+  return (
+    <div className="rounded-xl border border-primary/20 bg-primary/5 p-5">
+      <div className="flex items-start gap-3">
+        <div className="shrink-0 rounded-lg bg-primary/10 p-2 mt-0.5">
+          <Eye className="h-4 w-4 text-primary" />
+        </div>
+        <div>
+          <h3 className="text-sm font-semibold text-foreground">The Cost Visibility Gap</h3>
+          <p className="mt-1 text-xs text-muted-foreground leading-relaxed">
+            {variance > 0 ? (
+              <>Final costs exceeded estimates by {formatCurrency(variance)} ({formatPercent(variancePct)}). The biggest driver is <span className="font-medium text-foreground">{worstCategory.name}</span> at {formatCurrency(worstCategory.variance)} over estimate. Without real-time cost tracking connected to your ERP, these overruns compound undetected until close-out.</>
+            ) : (
+              <>Final costs came in {formatCurrency(Math.abs(variance))} under estimates — that's good cost discipline. But are you leaving margin on the table by over-estimating? Tighter estimates win more competitive bids without sacrificing profitability.</>
+            )}
+          </p>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export function CostAnalysis() {
   const { filteredProjects } = useProjectData();
 
@@ -109,6 +147,8 @@ export function CostAnalysis() {
           Total cost: {formatCurrency(totalFinalCost)} — variance from estimate: {formatCurrency(variance)} ({variance >= 0 ? 'overrun' : 'underrun'})
         </p>
       </div>
+
+      <CostExecutiveCallout projects={filteredProjects} />
 
       <div className="grid gap-6 lg:grid-cols-2">
         <CostStructurePie projects={filteredProjects} />

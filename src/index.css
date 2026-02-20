@@ -83,3 +83,16 @@ body {
   font-family: var(--font-sans);
   min-height: 100vh;
 }
+
+@media print {
+  aside, header, nav, button {
+    display: none !important;
+  }
+  body {
+    background: white !important;
+    color: black !important;
+  }
+  .rounded-xl {
+    break-inside: avoid;
+  }
+}

@@ -6,6 +6,7 @@ import {
   TrendingUp,
   PieChart,
   Target,
+  CalendarRange,
 } from 'lucide-react';
 
 const navItems = [
@@ -14,6 +15,7 @@ const navItems = [
   { to: '/gain-fade', label: 'Gain / Fade', icon: TrendingUp },
   { to: '/costs', label: 'Cost Analysis', icon: PieChart },
   { to: '/segments', label: 'Market Segments', icon: Target },
+  { to: '/trends', label: 'YoY Trends', icon: CalendarRange },
 ];
 
 export function Sidebar() {

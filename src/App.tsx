@@ -7,6 +7,7 @@ import { ProjectPortfolio } from '@/pages/ProjectPortfolio';
 import { GainFadeAnalysis } from '@/pages/GainFadeAnalysis';
 import { CostAnalysis } from '@/pages/CostAnalysis';
 import { MarketSegments } from '@/pages/MarketSegments';
+import { TrendAnalysis } from '@/pages/TrendAnalysis';
 import { ProjectDetail } from '@/pages/ProjectDetail';
 
 export default function App() {
@@ -21,6 +22,7 @@ export default function App() {
             <Route path="/gain-fade" element={<GainFadeAnalysis />} />
             <Route path="/costs" element={<CostAnalysis />} />
             <Route path="/segments" element={<MarketSegments />} />
+            <Route path="/trends" element={<TrendAnalysis />} />
             <Route path="/project/:id" element={<ProjectDetail />} />
           </Route>
           <Route path="*" element={<Navigate to="/" replace />} />

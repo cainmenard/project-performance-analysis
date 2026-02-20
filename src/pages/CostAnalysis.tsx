@@ -2,8 +2,9 @@ import { useProjectData } from '@/hooks/useProjectData';
 import { CostComparisonChart, CostVarianceChart } from '@/components/charts/CostBreakdownChart';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend, PieChart, Pie, Cell, Label } from 'recharts';
 import { formatCurrency, formatCurrencyFull, formatNumber, formatPercent } from '@/lib/formatters';
+import { analyzePortfolioCostDrivers } from '@/lib/calculations';
 import { cn } from '@/lib/cn';
-import { Eye } from 'lucide-react';
+import { AlertTriangle, TrendingUp } from 'lucide-react';
 
 const COLORS = ['var(--color-chart-1)', 'var(--color-chart-2)', 'var(--color-chart-3)', 'var(--color-chart-4)', 'var(--color-chart-5)'];
 
@@ -161,31 +162,41 @@ function CostExecutiveCallout({ projects }: { projects: import('@/lib/types').Pr
   const variance = totalFinalCost - totalOrigCost;
   const variancePct = totalOrigCost > 0 ? variance / totalOrigCost : 0;
 
-  // Find the biggest cost overrun category
-  const categories = [
-    { name: 'Labor', orig: projects.reduce((s, p) => s + p.originalEstimatedLabor, 0), final: projects.reduce((s, p) => s + p.finalLabor, 0) },
-    { name: 'Materials', orig: projects.reduce((s, p) => s + p.originalEstimatedMaterials, 0), final: projects.reduce((s, p) => s + p.finalMaterials, 0) },
-    { name: 'Equipment', orig: projects.reduce((s, p) => s + p.originalEstimatedEquipment, 0), final: projects.reduce((s, p) => s + p.finalEquipment, 0) },
-    { name: 'Subcontracts', orig: projects.reduce((s, p) => s + p.originalEstimatedSubcontracts, 0), final: projects.reduce((s, p) => s + p.finalSubcontracts, 0) },
-  ].map((c) => ({ ...c, variance: c.final - c.orig }));
-
-  const worstCategory = categories.reduce((a, b) => (a.variance > b.variance ? a : b));
+  const analysis = analyzePortfolioCostDrivers(projects);
+  const fadedProjects = projects.filter((p) => p.overallGainFade === 'Fade');
+  const isOverrun = variance > 0;
 
   return (
-    <div className="rounded-xl border border-primary/20 bg-primary/5 p-5">
+    <div className={cn('rounded-xl border p-5', isOverrun ? 'border-fade/20 bg-fade/5' : 'border-gain/20 bg-gain/5')}>
       <div className="flex items-start gap-3">
-        <div className="shrink-0 rounded-lg bg-primary/10 p-2 mt-0.5">
-          <Eye className="h-4 w-4 text-primary" />
+        <div className={cn('shrink-0 rounded-lg p-2 mt-0.5', isOverrun ? 'bg-fade/10' : 'bg-gain/10')}>
+          {isOverrun ? <AlertTriangle className="h-4 w-4 text-fade" /> : <TrendingUp className="h-4 w-4 text-gain" />}
         </div>
         <div>
-          <h3 className="text-sm font-semibold text-foreground">The Cost Visibility Gap</h3>
+          <h3 className="text-sm font-semibold text-foreground">
+            {isOverrun ? 'Cost Overrun Analysis' : 'Cost Discipline Analysis'}
+          </h3>
           <p className="mt-1 text-xs text-muted-foreground leading-relaxed">
-            {variance > 0 ? (
-              <>Final costs exceeded estimates by {formatCurrency(variance)} ({formatPercent(variancePct)}). The biggest driver is <span className="font-medium text-foreground">{worstCategory.name}</span> at {formatCurrency(worstCategory.variance)} over estimate. Without real-time cost tracking connected to your ERP, these overruns compound undetected until close-out.</>
+            {isOverrun ? (
+              <>Final costs exceeded estimates by {formatCurrency(variance)} ({formatPercent(variancePct)}). Across {fadedProjects.length} faded projects, the primary cost driver is <span className="font-medium text-foreground">{analysis.overallPrimaryFadeDriver}</span>
+                {analysis.laborDrivenFadeCount > 0 && ` (labor overruns drove ${analysis.laborDrivenFadeCount} fades)`}
+                {analysis.materialsDrivenFadeCount > 0 && `, materials drove ${analysis.materialsDrivenFadeCount}`}
+                {analysis.subsDrivenFadeCount > 0 && `, subcontractor costs drove ${analysis.subsDrivenFadeCount}`}
+                . Understanding which cost categories overrun most consistently is the first step toward tightening estimating accuracy.
+              </>
             ) : (
-              <>Final costs came in {formatCurrency(Math.abs(variance))} under estimates — that's good cost discipline. But are you leaving margin on the table by over-estimating? Tighter estimates win more competitive bids without sacrificing profitability.</>
+              <>Final costs came in {formatCurrency(Math.abs(variance))} under estimates — that's strong cost discipline. Gained projects show consistent savings in {analysis.gainedProjectDrivers.length > 0 ? analysis.gainedProjectDrivers[0].primaryDriver.category.toLowerCase() : 'labor'} costs, suggesting your estimating templates for those categories are conservatively calibrated.</>
             )}
           </p>
+          {isOverrun && analysis.fadeDriverPatterns.length > 0 && (
+            <div className="mt-2 flex flex-wrap gap-2">
+              {analysis.fadeDriverPatterns.map((p) => (
+                <span key={p.category} className="inline-flex rounded-full bg-fade/10 px-2 py-0.5 text-[10px] font-medium text-fade">
+                  {p.category}: {p.timesPrimaryDriver} projects, {formatCurrency(p.totalVarianceDollars)} total
+                </span>
+              ))}
+            </div>
+          )}
         </div>
       </div>
     </div>

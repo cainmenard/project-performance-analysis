@@ -5,7 +5,6 @@ import { ProfitMarginChart } from '@/components/charts/ProfitMarginChart';
 import { GainFadePieChart } from '@/components/charts/GainFadeChart';
 import { TopProjectsChart } from '@/components/charts/TopProjectsChart';
 import { AnalysisSummary } from '@/components/lead-gen/AnalysisSummary';
-import { CtaBanner } from '@/components/lead-gen/CtaBanner';
 
 export function ExecutiveSummary() {
   const { filteredProjects } = useProjectData();
@@ -30,8 +29,6 @@ export function ExecutiveSummary() {
       </div>
 
       <TopProjectsChart projects={filteredProjects} />
-
-      <CtaBanner />
     </div>
   );
 }

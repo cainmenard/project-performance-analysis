@@ -24,6 +24,7 @@ const initialState: ProjectDataState = {
     marketSegments: [],
     years: [],
     gainFade: [],
+    customers: [],
   },
 };
 
@@ -62,11 +63,12 @@ export function ProjectDataProvider({ children }: { children: ReactNode }) {
   const resetData = useCallback(() => dispatch({ type: 'RESET' }), []);
 
   const filteredProjects = state.projects.filter((p) => {
-    const { divisions, marketSegments, years, gainFade } = state.filters;
+    const { divisions, marketSegments, years, gainFade, customers } = state.filters;
     if (divisions.length > 0 && !divisions.includes(p.division)) return false;
     if (marketSegments.length > 0 && !marketSegments.includes(p.marketSegment)) return false;
     if (years.length > 0 && !years.includes(p.yearCompleted)) return false;
     if (gainFade.length > 0 && !gainFade.includes(p.overallGainFade)) return false;
+    if (customers.length > 0 && !customers.includes(p.customerName)) return false;
     return true;
   });
 

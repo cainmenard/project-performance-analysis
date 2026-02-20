@@ -51,13 +51,7 @@ export function LandingPage() {
           </div>
 
           <div className="mt-16 text-center text-xs text-muted-foreground">
-            <p>
-              Powered by{' '}
-              <a href="https://automized.com" target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">
-                Automized
-              </a>
-              {' '}— Your data stays in your browser. Nothing is uploaded to any server.
-            </p>
+            <p>Your data stays in your browser. Nothing is uploaded to any server.</p>
           </div>
         </div>
       </main>

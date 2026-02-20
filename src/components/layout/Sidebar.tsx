@@ -7,6 +7,7 @@ import {
   PieChart,
   Target,
   CalendarRange,
+  GitCompareArrows,
 } from 'lucide-react';
 
 const navItems = [
@@ -16,6 +17,7 @@ const navItems = [
   { to: '/costs', label: 'Cost Analysis', icon: PieChart },
   { to: '/segments', label: 'Market Segments', icon: Target },
   { to: '/trends', label: 'YoY Trends', icon: CalendarRange },
+  { to: '/compare', label: 'Compare Projects', icon: GitCompareArrows },
 ];
 
 export function Sidebar() {

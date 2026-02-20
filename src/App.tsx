@@ -9,6 +9,7 @@ import { CostAnalysis } from '@/pages/CostAnalysis';
 import { MarketSegments } from '@/pages/MarketSegments';
 import { TrendAnalysis } from '@/pages/TrendAnalysis';
 import { ProjectDetail } from '@/pages/ProjectDetail';
+import { ProjectComparison } from '@/pages/ProjectComparison';
 
 export default function App() {
   return (
@@ -23,6 +24,7 @@ export default function App() {
             <Route path="/costs" element={<CostAnalysis />} />
             <Route path="/segments" element={<MarketSegments />} />
             <Route path="/trends" element={<TrendAnalysis />} />
+            <Route path="/compare" element={<ProjectComparison />} />
             <Route path="/project/:id" element={<ProjectDetail />} />
           </Route>
           <Route path="*" element={<Navigate to="/" replace />} />

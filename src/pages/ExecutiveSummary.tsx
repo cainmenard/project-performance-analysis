@@ -8,6 +8,7 @@ import { AnalysisSummary } from '@/components/lead-gen/AnalysisSummary';
 import { RiskExposurePanel } from '@/components/lead-gen/RiskExposurePanel';
 import { StrategicRecommendations } from '@/components/lead-gen/StrategicRecommendations';
 import { CtaBanner } from '@/components/lead-gen/CtaBanner';
+import { DataQualityReport } from '@/components/DataQualityReport';
 
 export function ExecutiveSummary() {
   const { filteredProjects } = useProjectData();
@@ -21,6 +22,8 @@ export function ExecutiveSummary() {
           Portfolio intelligence across {summary.totalProjects} projects — {summary.divisions.length} divisions, {summary.marketSegments.length} market segments
         </p>
       </div>
+
+      <DataQualityReport projects={filteredProjects} />
 
       <KpiCards summary={summary} />
 

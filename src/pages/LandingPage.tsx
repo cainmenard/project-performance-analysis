@@ -220,13 +220,7 @@ export function LandingPage() {
 
         {/* Footer */}
         <div className="border-t border-border py-8 text-center text-xs text-muted-foreground">
-          <p>
-            Powered by{' '}
-            <a href="https://automized.com" target="_blank" rel="noopener noreferrer" className="text-primary hover:underline font-medium">
-              Automized
-            </a>
-            {' '}— Software, Process & Change Management for Construction Intelligence
-          </p>
+          <p>Your data stays in your browser. Nothing is uploaded to any server.</p>
         </div>
       </main>
     </div>

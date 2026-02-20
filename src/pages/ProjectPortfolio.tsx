@@ -4,14 +4,12 @@ import { useProjectData } from '@/hooks/useProjectData';
 import { ProjectScatterPlot } from '@/components/charts/ProjectScatterPlot';
 import { formatCurrency, formatPercent } from '@/lib/formatters';
 import { cn } from '@/lib/cn';
-import { calculatePortfolioSummary } from '@/lib/calculations';
 import { ArrowUpDown } from 'lucide-react';
 
-type SortField = 'projectName' | 'finalContractValue' | 'finalGrossProfitMargin' | 'overallGainFade' | 'marketSegment';
+type SortField = 'projectName' | 'finalContractValue' | 'finalGrossProfitMargin' | 'overallGainFade' | 'marketSegment' | 'customerName' | 'yearCompleted' | 'gainFadeOrgFinalDollars';
 
 export function ProjectPortfolio() {
-  const { filteredProjects, state, setFilters } = useProjectData();
-  const summary = calculatePortfolioSummary(state.projects);
+  const { filteredProjects } = useProjectData();
   const navigate = useNavigate();
   const [sortField, setSortField] = useState<SortField>('finalContractValue');
   const [sortAsc, setSortAsc] = useState(false);
@@ -27,69 +25,19 @@ export function ProjectPortfolio() {
 
   const sorted = [...filteredProjects].sort((a, b) => {
     const mul = sortAsc ? 1 : -1;
-    if (sortField === 'projectName') return mul * a.projectName.localeCompare(b.projectName);
-    if (sortField === 'overallGainFade') return mul * a.overallGainFade.localeCompare(b.overallGainFade);
-    if (sortField === 'marketSegment') return mul * a.marketSegment.localeCompare(b.marketSegment);
+    if (sortField === 'projectName' || sortField === 'overallGainFade' || sortField === 'marketSegment' || sortField === 'customerName') {
+      return mul * ((a[sortField] as string) || '').localeCompare((b[sortField] as string) || '');
+    }
     return mul * ((a[sortField] as number) - (b[sortField] as number));
   });
-
-  const toggleFilter = (type: 'divisions' | 'marketSegments' | 'gainFade', value: string) => {
-    const current = state.filters[type] as string[];
-    const next = current.includes(value)
-      ? current.filter((v) => v !== value)
-      : [...current, value];
-    setFilters({ [type]: next });
-  };
 
   return (
     <div className="space-y-6">
       <div>
         <h2 className="text-xl font-bold tracking-tight">Project Portfolio</h2>
         <p className="text-sm text-muted-foreground">
-          All {filteredProjects.length} projects — click any project to see details
+          {filteredProjects.length} projects — click any project to drill down into cost and margin details
         </p>
-      </div>
-
-      {/* Filters */}
-      <div className="flex flex-wrap gap-4">
-        <div>
-          <p className="mb-1.5 text-xs font-medium text-muted-foreground">Division</p>
-          <div className="flex gap-1.5">
-            {summary.divisions.map((d) => (
-              <button
-                key={d}
-                onClick={() => toggleFilter('divisions', d)}
-                className={cn(
-                  'rounded-md border px-2.5 py-1 text-xs font-medium transition-colors',
-                  (state.filters.divisions as string[]).includes(d)
-                    ? 'border-primary bg-primary text-primary-foreground'
-                    : 'border-border text-muted-foreground hover:bg-accent'
-                )}
-              >
-                {d}
-              </button>
-            ))}
-          </div>
-        </div>
-        <div>
-          <p className="mb-1.5 text-xs font-medium text-muted-foreground">Gain/Fade</p>
-          <div className="flex gap-1.5">
-            {(['Gain', 'Fade'] as const).map((gf) => (
-              <button
-                key={gf}
-                onClick={() => toggleFilter('gainFade', gf)}
-                className={cn(
-                  'rounded-md border px-2.5 py-1 text-xs font-medium transition-colors',
-                  (state.filters.gainFade as string[]).includes(gf)
-                    ? gf === 'Gain' ? 'border-gain bg-gain text-white' : 'border-fade bg-fade text-white'
-                    : 'border-border text-muted-foreground hover:bg-accent'
-                )}
-              >
-                {gf}
-              </button>
-            ))}
-          </div>
-        </div>
       </div>
 
       <ProjectScatterPlot projects={filteredProjects} />
@@ -102,10 +50,13 @@ export function ProjectPortfolio() {
               <tr className="border-b border-border bg-muted/50">
                 {([
                   ['projectName', 'Project'],
+                  ['customerName', 'Customer'],
                   ['marketSegment', 'Segment'],
+                  ['yearCompleted', 'Year'],
                   ['finalContractValue', 'Contract Value'],
                   ['finalGrossProfitMargin', 'Margin'],
-                  ['overallGainFade', 'Gain/Fade'],
+                  ['gainFadeOrgFinalDollars', 'Gain/Fade $'],
+                  ['overallGainFade', 'Status'],
                 ] as [SortField, string][]).map(([field, label]) => (
                   <th
                     key={field}
@@ -129,11 +80,16 @@ export function ProjectPortfolio() {
                 >
                   <td className="px-4 py-3">
                     <p className="font-medium text-foreground">{p.projectName}</p>
-                    <p className="text-xs text-muted-foreground">{p.customerName}</p>
+                    <p className="text-xs text-muted-foreground">{p.division}</p>
                   </td>
+                  <td className="px-4 py-3 text-xs text-muted-foreground">{p.customerName}</td>
                   <td className="px-4 py-3 text-xs text-muted-foreground">{p.marketSegment}</td>
+                  <td className="px-4 py-3 text-xs text-muted-foreground">{p.yearCompleted}</td>
                   <td className="px-4 py-3 font-medium">{formatCurrency(p.finalContractValue)}</td>
                   <td className="px-4 py-3">{formatPercent(p.finalGrossProfitMargin)}</td>
+                  <td className={cn('px-4 py-3 font-medium', p.gainFadeOrgFinalDollars >= 0 ? 'text-gain' : 'text-fade')}>
+                    {p.gainFadeOrgFinalDollars >= 0 ? '+' : ''}{formatCurrency(p.gainFadeOrgFinalDollars)}
+                  </td>
                   <td className="px-4 py-3">
                     <span className={cn(
                       'inline-flex rounded-full px-2 py-0.5 text-xs font-medium',

@@ -17,6 +17,7 @@ export function calculatePortfolioSummary(projects: ProjectRecord[]): PortfolioS
   const marketSegments = [...new Set(projects.map((p) => p.marketSegment))].filter(Boolean).sort();
   const divisions = [...new Set(projects.map((p) => p.division))].filter(Boolean).sort();
   const years = [...new Set(projects.map((p) => p.yearCompleted))].filter(Boolean).sort();
+  const customers = [...new Set(projects.map((p) => p.customerName))].filter(Boolean).sort();
 
   return {
     totalProjects,
@@ -32,6 +33,7 @@ export function calculatePortfolioSummary(projects: ProjectRecord[]): PortfolioS
     marketSegments,
     divisions,
     years,
+    customers,
   };
 }
 
@@ -93,12 +95,42 @@ export function calculateDivisionMetrics(projects: ProjectRecord[]): DivisionMet
   })).sort((a, b) => b.totalRevenue - a.totalRevenue);
 }
 
+export interface CustomerMetrics {
+  customer: string;
+  projectCount: number;
+  totalRevenue: number;
+  averageMargin: number;
+  gainCount: number;
+  fadeCount: number;
+  totalGainFade: number;
+}
+
+export function calculateCustomerMetrics(projects: ProjectRecord[]): CustomerMetrics[] {
+  const custMap = new Map<string, ProjectRecord[]>();
+  for (const p of projects) {
+    const cust = p.customerName || 'Unknown';
+    if (!custMap.has(cust)) custMap.set(cust, []);
+    custMap.get(cust)!.push(p);
+  }
+
+  return Array.from(custMap.entries()).map(([customer, prjs]) => ({
+    customer,
+    projectCount: prjs.length,
+    totalRevenue: prjs.reduce((s, p) => s + p.finalContractValue, 0),
+    averageMargin: prjs.reduce((s, p) => s + p.finalGrossProfitMargin, 0) / prjs.length,
+    gainCount: prjs.filter((p) => p.overallGainFade === 'Gain').length,
+    fadeCount: prjs.filter((p) => p.overallGainFade === 'Fade').length,
+    totalGainFade: prjs.reduce((s, p) => s + p.gainFadeOrgFinalDollars, 0),
+  })).sort((a, b) => b.totalRevenue - a.totalRevenue);
+}
+
 export interface CostCategoryData {
   category: string;
   original: number;
   revised: number;
   final: number;
   variance: number;
+  variancePct: number;
 }
 
 export function calculateCostBreakdown(projects: ProjectRecord[]): CostCategoryData[] {
@@ -109,6 +141,7 @@ export function calculateCostBreakdown(projects: ProjectRecord[]): CostCategoryD
       revised: projects.reduce((s, p) => s + p.revisedEstimatedLabor, 0),
       final: projects.reduce((s, p) => s + p.finalLabor, 0),
       variance: 0,
+      variancePct: 0,
     },
     {
       category: 'Materials',
@@ -116,6 +149,7 @@ export function calculateCostBreakdown(projects: ProjectRecord[]): CostCategoryD
       revised: projects.reduce((s, p) => s + p.revisedEstimatedMaterials, 0),
       final: projects.reduce((s, p) => s + p.finalMaterials, 0),
       variance: 0,
+      variancePct: 0,
     },
     {
       category: 'Equipment',
@@ -123,6 +157,7 @@ export function calculateCostBreakdown(projects: ProjectRecord[]): CostCategoryD
       revised: projects.reduce((s, p) => s + p.revisedEstimatedEquipment, 0),
       final: projects.reduce((s, p) => s + p.finalEquipment, 0),
       variance: 0,
+      variancePct: 0,
     },
     {
       category: 'Subcontracts',
@@ -130,6 +165,7 @@ export function calculateCostBreakdown(projects: ProjectRecord[]): CostCategoryD
       revised: projects.reduce((s, p) => s + p.revisedEstimatedSubcontracts, 0),
       final: projects.reduce((s, p) => s + p.finalSubcontracts, 0),
       variance: 0,
+      variancePct: 0,
     },
     {
       category: 'Other',
@@ -137,11 +173,13 @@ export function calculateCostBreakdown(projects: ProjectRecord[]): CostCategoryD
       revised: projects.reduce((s, p) => s + p.revisedEstimatedOther, 0),
       final: projects.reduce((s, p) => s + p.finalOther, 0),
       variance: 0,
+      variancePct: 0,
     },
   ];
 
   for (const cat of categories) {
     cat.variance = cat.final - cat.original;
+    cat.variancePct = cat.original > 0 ? (cat.final - cat.original) / cat.original : 0;
   }
 
   return categories;
@@ -151,18 +189,63 @@ export function getTopProjects(projects: ProjectRecord[], count: number = 10): P
   return [...projects].sort((a, b) => b.finalContractValue - a.finalContractValue).slice(0, count);
 }
 
-export function getMarginDistribution(projects: ProjectRecord[]): { range: string; count: number }[] {
+export interface MarginDistributionItem {
+  range: string;
+  count: number;
+  totalRevenue: number;
+  totalProfit: number;
+}
+
+export function getMarginDistribution(projects: ProjectRecord[]): MarginDistributionItem[] {
   const ranges = [
     { label: '< 0%', min: -Infinity, max: 0 },
-    { label: '0-10%', min: 0, max: 0.1 },
-    { label: '10-20%', min: 0.1, max: 0.2 },
-    { label: '20-30%', min: 0.2, max: 0.3 },
-    { label: '30-40%', min: 0.3, max: 0.4 },
-    { label: '> 40%', min: 0.4, max: Infinity },
+    { label: '0-5%', min: 0, max: 0.05 },
+    { label: '5-10%', min: 0.05, max: 0.1 },
+    { label: '10-15%', min: 0.1, max: 0.15 },
+    { label: '15-20%', min: 0.15, max: 0.2 },
+    { label: '20-25%', min: 0.2, max: 0.25 },
+    { label: '25-30%', min: 0.25, max: 0.3 },
+    { label: '> 30%', min: 0.3, max: Infinity },
   ];
 
-  return ranges.map(({ label, min, max }) => ({
-    range: label,
-    count: projects.filter((p) => p.finalGrossProfitMargin >= min && p.finalGrossProfitMargin < max).length,
-  }));
+  return ranges.map(({ label, min, max }) => {
+    const inRange = projects.filter((p) => p.finalGrossProfitMargin >= min && p.finalGrossProfitMargin < max);
+    return {
+      range: label,
+      count: inRange.length,
+      totalRevenue: inRange.reduce((s, p) => s + p.finalContractValue, 0),
+      totalProfit: inRange.reduce((s, p) => s + p.finalProfit, 0),
+    };
+  });
+}
+
+export interface YearMetrics {
+  year: number;
+  projectCount: number;
+  totalRevenue: number;
+  averageMargin: number;
+  gainCount: number;
+  fadeCount: number;
+  gainRate: number;
+  totalGainFade: number;
+}
+
+export function calculateYearMetrics(projects: ProjectRecord[]): YearMetrics[] {
+  const yearMap = new Map<number, ProjectRecord[]>();
+  for (const p of projects) {
+    const yr = p.yearCompleted;
+    if (!yearMap.has(yr)) yearMap.set(yr, []);
+    yearMap.get(yr)!.push(p);
+  }
+
+  return Array.from(yearMap.entries()).map(([year, prjs]) => ({
+    year,
+    projectCount: prjs.length,
+    totalRevenue: prjs.reduce((s, p) => s + p.finalContractValue, 0),
+    averageMargin: prjs.reduce((s, p) => s + p.finalGrossProfitMargin, 0) / prjs.length,
+    gainCount: prjs.filter((p) => p.overallGainFade === 'Gain').length,
+    fadeCount: prjs.filter((p) => p.overallGainFade === 'Fade').length,
+    gainRate: prjs.filter((p) => p.overallGainFade === 'Gain').length / prjs.length,
+    totalGainFade: prjs.reduce((s, p) => s + p.gainFadeOrgFinalDollars, 0),
+  })).sort((a, b) => a.year - b.year);
 }

@@ -7,7 +7,6 @@ import { TopProjectsChart } from '@/components/charts/TopProjectsChart';
 import { AnalysisSummary } from '@/components/lead-gen/AnalysisSummary';
 import { RiskExposurePanel } from '@/components/lead-gen/RiskExposurePanel';
 import { StrategicRecommendations } from '@/components/lead-gen/StrategicRecommendations';
-import { CtaBanner } from '@/components/lead-gen/CtaBanner';
 
 export function ExecutiveSummary() {
   const { filteredProjects } = useProjectData();
@@ -36,8 +35,6 @@ export function ExecutiveSummary() {
       <TopProjectsChart projects={filteredProjects} />
 
       <StrategicRecommendations summary={summary} projects={filteredProjects} />
-
-      <CtaBanner />
     </div>
   );
 }

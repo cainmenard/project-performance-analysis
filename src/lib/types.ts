@@ -68,6 +68,7 @@ export interface PortfolioSummary {
   marketSegments: string[];
   divisions: string[];
   years: number[];
+  customers: string[];
 }
 
 export interface FilterState {
@@ -75,4 +76,5 @@ export interface FilterState {
   marketSegments: string[];
   years: number[];
   gainFade: ('Gain' | 'Fade')[];
+  customers: string[];
 }

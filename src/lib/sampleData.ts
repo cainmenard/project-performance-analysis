@@ -1,36 +1,523 @@
 import type { ProjectRecord } from './types';
 
+// Builder function to ensure all math is consistent across each record
+function buildProject(p: {
+  id: string;
+  name: string;
+  customer: string;
+  division: 'Commercial' | 'Healthcare' | 'Residential';
+  segment: string;
+  year: number;
+  origValue: number;
+  origCostBreakdown: { labor: number; laborHours: number; materials: number; equipment: number; subs: number; other: number };
+  changeOrderDelta: number; // net change to contract value
+  revCostBreakdown: { labor: number; laborHours: number; materials: number; equipment: number; subs: number; other: number };
+  finalCostBreakdown: { labor: number; laborHours: number; materials: number; equipment: number; subs: number; other: number };
+  finalContractAdj?: number; // if final contract differs from revised (rare)
+}): ProjectRecord {
+  const origCost = p.origCostBreakdown.labor + p.origCostBreakdown.materials + p.origCostBreakdown.equipment + p.origCostBreakdown.subs + p.origCostBreakdown.other;
+  const revValue = p.origValue + p.changeOrderDelta;
+  const revCost = p.revCostBreakdown.labor + p.revCostBreakdown.materials + p.revCostBreakdown.equipment + p.revCostBreakdown.subs + p.revCostBreakdown.other;
+  const finalValue = p.finalContractAdj !== undefined ? p.finalContractAdj : revValue;
+  const finalCost = p.finalCostBreakdown.labor + p.finalCostBreakdown.materials + p.finalCostBreakdown.equipment + p.finalCostBreakdown.subs + p.finalCostBreakdown.other;
+
+  const origProfit = p.origValue - origCost;
+  const origMargin = p.origValue > 0 ? origProfit / p.origValue : 0;
+  const revProfit = revValue - revCost;
+  const revMargin = revValue > 0 ? revProfit / revValue : 0;
+  const finalProfit = finalValue - finalCost;
+  const finalMargin = finalValue > 0 ? finalProfit / finalValue : 0;
+
+  const gfDollars = finalProfit - origProfit;
+  const gfPctOrgFinal = finalMargin - origMargin;
+  const gfPctRevFinal = finalMargin - revMargin;
+
+  return {
+    customerName: p.customer,
+    division: p.division,
+    projectName: p.name,
+    projectNumber: p.id,
+    yearCompleted: p.year,
+    marketSegment: p.segment,
+    originalContractValue: Math.round(p.origValue),
+    revisedContractValue: Math.round(revValue),
+    finalContractValue: Math.round(finalValue),
+    finalCost: Math.round(finalCost * 100) / 100,
+    finalLabor: Math.round(p.finalCostBreakdown.labor * 100) / 100,
+    finalLaborHours: Math.round(p.finalCostBreakdown.laborHours),
+    finalMaterials: Math.round(p.finalCostBreakdown.materials * 100) / 100,
+    finalEquipment: Math.round(p.finalCostBreakdown.equipment * 100) / 100,
+    finalSubcontracts: Math.round(p.finalCostBreakdown.subs * 100) / 100,
+    finalOther: Math.round(p.finalCostBreakdown.other * 100) / 100,
+    originalEstimatedCost: Math.round(origCost * 100) / 100,
+    originalEstimatedLabor: Math.round(p.origCostBreakdown.labor * 100) / 100,
+    originalEstimatedLaborHours: Math.round(p.origCostBreakdown.laborHours),
+    originalEstimatedMaterials: Math.round(p.origCostBreakdown.materials * 100) / 100,
+    originalEstimatedEquipment: Math.round(p.origCostBreakdown.equipment * 100) / 100,
+    originalEstimatedSubcontracts: Math.round(p.origCostBreakdown.subs * 100) / 100,
+    originalEstimatedOther: Math.round(p.origCostBreakdown.other * 100) / 100,
+    revisedEstimatedCost: Math.round(revCost * 100) / 100,
+    revisedEstimatedLabor: Math.round(p.revCostBreakdown.labor * 100) / 100,
+    revisedEstimatedLaborHours: Math.round(p.revCostBreakdown.laborHours),
+    revisedEstimatedMaterials: Math.round(p.revCostBreakdown.materials * 100) / 100,
+    revisedEstimatedEquipment: Math.round(p.revCostBreakdown.equipment * 100) / 100,
+    revisedEstimatedSubcontracts: Math.round(p.revCostBreakdown.subs * 100) / 100,
+    revisedEstimatedOther: Math.round(p.revCostBreakdown.other * 100) / 100,
+    originalEstimatedProfit: Math.round(origProfit * 100) / 100,
+    originalEstimatedProfitMargin: Math.round(origMargin * 10000) / 10000,
+    revisedEstimatedProfit: Math.round(revProfit * 100) / 100,
+    revisedEstimatedProfitMargin: Math.round(revMargin * 10000) / 10000,
+    finalProfit: Math.round(finalProfit * 100) / 100,
+    finalGrossProfitMargin: Math.round(finalMargin * 10000) / 10000,
+    gainFadeOrgFinalDollars: Math.round(gfDollars * 100) / 100,
+    gainFadeOrgFinalPercent: Math.round(gfPctOrgFinal * 10000) / 10000,
+    gainFadeRevFinalPercent: Math.round(gfPctRevFinal * 10000) / 10000,
+    overallGainFade: gfDollars >= 0 ? 'Gain' : 'Fade',
+  };
+}
+
 export const sampleData: ProjectRecord[] = [
-  { customerName: "J&J WORLDWIDE SERVICES", division: "SPC", projectName: "NBPL bldg 500 RTU R&R", projectNumber: "20615", yearCompleted: 2023, marketSegment: "FED", originalContractValue: 34314, revisedContractValue: 38541, finalContractValue: 38541, finalCost: 26650.22, finalLabor: 2779.19, finalLaborHours: 36, finalMaterials: 276.34, finalEquipment: 17145.19, finalSubcontracts: 0, finalOther: 1232, originalEstimatedCost: 24706, originalEstimatedLabor: 2228, originalEstimatedLaborHours: 26, originalEstimatedMaterials: 226.28, originalEstimatedEquipment: 17358.53, originalEstimatedSubcontracts: 0, originalEstimatedOther: 4022, revisedEstimatedCost: 26650.22, revisedEstimatedLabor: 3278, revisedEstimatedLaborHours: 36, revisedEstimatedMaterials: 735.69, revisedEstimatedEquipment: 17358.53, revisedEstimatedSubcontracts: 0, revisedEstimatedOther: 4072, originalEstimatedProfit: 9607.8, originalEstimatedProfitMargin: 0.28, revisedEstimatedProfit: 11890.78, revisedEstimatedProfitMargin: 0.3085, finalProfit: 11890.78, finalGrossProfitMargin: 0.3085, gainFadeOrgFinalDollars: 2282.98, gainFadeOrgFinalPercent: 0.0285, gainFadeRevFinalPercent: 0, overallGainFade: "Gain" },
-  { customerName: "PRECISION DIAGNOSTICS", division: "SPC", projectName: "Precision Diagnostics - MEP Modifications", projectNumber: "20620", yearCompleted: 2023, marketSegment: "PHA", originalContractValue: 11795, revisedContractValue: 11795, finalContractValue: 11795, finalCost: 8056.87, finalLabor: 4130.53, finalLaborHours: 64, finalMaterials: 655.83, finalEquipment: 0, finalSubcontracts: 1956, finalOther: 426.95, originalEstimatedCost: 8057, originalEstimatedLabor: 4544, originalEstimatedLaborHours: 64, originalEstimatedMaterials: 1318.87, originalEstimatedEquipment: 0, originalEstimatedSubcontracts: 0, originalEstimatedOther: 50, revisedEstimatedCost: 8056.87, revisedEstimatedLabor: 4544, revisedEstimatedLaborHours: 64, revisedEstimatedMaterials: 918.87, revisedEstimatedEquipment: 0, revisedEstimatedSubcontracts: 0, revisedEstimatedOther: 450, originalEstimatedProfit: 3737.68, originalEstimatedProfitMargin: 0.3169, revisedEstimatedProfit: 3738.13, revisedEstimatedProfitMargin: 0.3169, finalProfit: 3738.13, finalGrossProfitMargin: 0.3169, gainFadeOrgFinalDollars: 0.45, gainFadeOrgFinalPercent: 0, gainFadeRevFinalPercent: 0, overallGainFade: "Gain" },
-  { customerName: "CHULA VISTA ELEMENTARY SCHOOL DISTRICT", division: "CTG", projectName: "CVESD HALECREST & LOMA VERDE ELEM", projectNumber: "63376", yearCompleted: 2023, marketSegment: "K12", originalContractValue: 1649068, revisedContractValue: 1546612, finalContractValue: 1546612, finalCost: 1354067.54, finalLabor: 164874.13, finalLaborHours: 2320, finalMaterials: 30269.69, finalEquipment: 409724.83, finalSubcontracts: 659721, finalOther: 25689.52, originalEstimatedCost: 1472238, originalEstimatedLabor: 132762, originalEstimatedLaborHours: 2066, originalEstimatedMaterials: 36642.23, originalEstimatedEquipment: 407334, originalEstimatedSubcontracts: 618595, originalEstimatedOther: 227321, revisedEstimatedCost: 1354067.54, revisedEstimatedLabor: 153496.1, revisedEstimatedLaborHours: 2320, revisedEstimatedMaterials: 38568.7, revisedEstimatedEquipment: 430977.41, revisedEstimatedSubcontracts: 654119, revisedEstimatedOther: 27322.33, originalEstimatedProfit: 176829.77, originalEstimatedProfitMargin: 0.3169, revisedEstimatedProfit: 192544.46, revisedEstimatedProfitMargin: 0.1245, finalProfit: 192544.46, finalGrossProfitMargin: 0.1245, gainFadeOrgFinalDollars: 15714.69, gainFadeOrgFinalPercent: 0.0173, gainFadeRevFinalPercent: 0, overallGainFade: "Gain" },
-  { customerName: "Martin Marietta", division: "SPC", projectName: "MARTIN MARIETTA - GAS METERS", projectNumber: "20607", yearCompleted: 2023, marketSegment: "IND", originalContractValue: 78888, revisedContractValue: 78888, finalContractValue: 78888, finalCost: 57588.28, finalLabor: 8354.91, finalLaborHours: 156, finalMaterials: 2550.25, finalEquipment: 13948.24, finalSubcontracts: 0, finalOther: 120, originalEstimatedCost: 57588, originalEstimatedLabor: 11772, originalEstimatedLaborHours: 156, originalEstimatedMaterials: 3664.24, originalEstimatedEquipment: 36566.04, originalEstimatedSubcontracts: 0, originalEstimatedOther: 360, revisedEstimatedCost: 57588.28, revisedEstimatedLabor: 11772, revisedEstimatedLaborHours: 156, revisedEstimatedMaterials: 3664.24, revisedEstimatedEquipment: 36566.04, revisedEstimatedSubcontracts: 0, revisedEstimatedOther: 360, originalEstimatedProfit: 21299.76, originalEstimatedProfitMargin: 0.27, revisedEstimatedProfit: 21299.72, revisedEstimatedProfitMargin: 0.27, finalProfit: 21299.72, finalGrossProfitMargin: 0.27, gainFadeOrgFinalDollars: -0.04, gainFadeOrgFinalPercent: 0, gainFadeRevFinalPercent: 0, overallGainFade: "Fade" },
-  { customerName: "SAN DIEGO OLD TOWN MARKET", division: "SPC", projectName: "SAN DIEGO OLD TOWN MARKET - 2 SPLITS", projectNumber: "20617", yearCompleted: 2023, marketSegment: "OFFICE", originalContractValue: 32699, revisedContractValue: 32699, finalContractValue: 32699, finalCost: 24197, finalLabor: 4773.26, finalLaborHours: 64, finalMaterials: 321.79, finalEquipment: 15169, finalSubcontracts: 0, finalOther: 300, originalEstimatedCost: 24197, originalEstimatedLabor: 4184, originalEstimatedLaborHours: 64, originalEstimatedMaterials: 1428.77, originalEstimatedEquipment: 15936.23, originalEstimatedSubcontracts: 0, originalEstimatedOther: 504, revisedEstimatedCost: 24197, revisedEstimatedLabor: 4184, revisedEstimatedLaborHours: 64, revisedEstimatedMaterials: 1428.77, revisedEstimatedEquipment: 15936.23, revisedEstimatedSubcontracts: 0, revisedEstimatedOther: 504, originalEstimatedProfit: 8501.64, originalEstimatedProfitMargin: 0.26, revisedEstimatedProfit: 8502, revisedEstimatedProfitMargin: 0.26, finalProfit: 8502, finalGrossProfitMargin: 0.26, gainFadeOrgFinalDollars: 0.36, gainFadeOrgFinalPercent: 0, gainFadeRevFinalPercent: 0, overallGainFade: "Gain" },
-  { customerName: "SCHNEIDER ELECTRIC IT MISSION CRITICAL SERVICES INC", division: "CTG", projectName: "NAVFAC CORONADO PHS 2 GRACE HOPPER", projectNumber: "63334", yearCompleted: 2023, marketSegment: "MIL", originalContractValue: 193000, revisedContractValue: 202770.8, finalContractValue: 202770.8, finalCost: 164022.1, finalLabor: 51466.27, finalLaborHours: 1075, finalMaterials: 16026.35, finalEquipment: 0, finalSubcontracts: 7114, finalOther: 0, originalEstimatedCost: 159488, originalEstimatedLabor: 75260, originalEstimatedLaborHours: 1022, originalEstimatedMaterials: 33391.3, originalEstimatedEquipment: 0, originalEstimatedSubcontracts: 21900, originalEstimatedOther: 4000, revisedEstimatedCost: 164022.1, revisedEstimatedLabor: 78156, revisedEstimatedLaborHours: 1075, revisedEstimatedMaterials: 33391.3, revisedEstimatedEquipment: 0, revisedEstimatedSubcontracts: 21900, revisedEstimatedOther: 4000, originalEstimatedProfit: 33511.9, originalEstimatedProfitMargin: 0.1736, revisedEstimatedProfit: 38748.7, revisedEstimatedProfitMargin: 0.1911, finalProfit: 38748.7, finalGrossProfitMargin: 0.1911, gainFadeOrgFinalDollars: 5236.8, gainFadeOrgFinalPercent: 0.0175, gainFadeRevFinalPercent: 0, overallGainFade: "Gain" },
-  { customerName: "SDGESEMPRA ENERGY", division: "CTG", projectName: "SDG&E METRO B SERVER ROOM IMPRV", projectNumber: "63371", yearCompleted: 2023, marketSegment: "ENGY", originalContractValue: 152016, revisedContractValue: 205046, finalContractValue: 205046, finalCost: 175715.29, finalLabor: 131.06, finalLaborHours: 16, finalMaterials: 0, finalEquipment: 165224.16, finalSubcontracts: 0, finalOther: 0, originalEstimatedCost: 131275, originalEstimatedLabor: 800, originalEstimatedLaborHours: 16, originalEstimatedMaterials: 0, originalEstimatedEquipment: 121803.83, originalEstimatedSubcontracts: 0, originalEstimatedOther: 8351, revisedEstimatedCost: 175715.29, revisedEstimatedLabor: 800, revisedEstimatedLaborHours: 16, revisedEstimatedMaterials: 0, revisedEstimatedEquipment: 166244.29, revisedEstimatedSubcontracts: 0, revisedEstimatedOther: 8351, originalEstimatedProfit: 20741.17, originalEstimatedProfitMargin: 0.1364, revisedEstimatedProfit: 29330.71, revisedEstimatedProfitMargin: 0.143, finalProfit: 29330.71, finalGrossProfitMargin: 0.143, gainFadeOrgFinalDollars: 8589.54, gainFadeOrgFinalPercent: 0.0066, gainFadeRevFinalPercent: 0, overallGainFade: "Gain" },
-  { customerName: "PALOMAR HEALTH", division: "SPC", projectName: "Palomar Health MOB multi unit R&R", projectNumber: "20606", yearCompleted: 2023, marketSegment: "HOSPITAL", originalContractValue: 57839, revisedContractValue: 57839, finalContractValue: 57839, finalCost: 40462.17, finalLabor: 12870.58, finalLaborHours: 96, finalMaterials: 774.96, finalEquipment: 18757.12, finalSubcontracts: 0, finalOther: 0, originalEstimatedCost: 40462, originalEstimatedLabor: 8760, originalEstimatedLaborHours: 96, originalEstimatedMaterials: 2417.91, originalEstimatedEquipment: 19132.26, originalEstimatedSubcontracts: 6400, originalEstimatedOther: 0, revisedEstimatedCost: 40462.17, revisedEstimatedLabor: 8760, revisedEstimatedLaborHours: 96, revisedEstimatedMaterials: 2417.91, revisedEstimatedEquipment: 19132.26, revisedEstimatedSubcontracts: 6400, revisedEstimatedOther: 0, originalEstimatedProfit: 17376.42, originalEstimatedProfitMargin: 0.3004, revisedEstimatedProfit: 17376.83, revisedEstimatedProfitMargin: 0.3004, finalProfit: 17376.83, finalGrossProfitMargin: 0.3004, gainFadeOrgFinalDollars: 0.41, gainFadeOrgFinalPercent: 0, gainFadeRevFinalPercent: 0, overallGainFade: "Gain" },
-  { customerName: "LEVEL 10 CONSTRUCTION LP", division: "CTG", projectName: "APPLE SND 15", projectNumber: "63365", yearCompleted: 2023, marketSegment: "IND", originalContractValue: 8230300, revisedContractValue: 13134983, finalContractValue: 13134983, finalCost: 11619116.68, finalLabor: 4184224.17, finalLaborHours: 43469.7, finalMaterials: 2093431.51, finalEquipment: 2992239, finalSubcontracts: 2816604.04, finalOther: 436407.47, originalEstimatedCost: 7404680, originalEstimatedLabor: 1791873, originalEstimatedLaborHours: 28905.5, originalEstimatedMaterials: 1045478.86, originalEstimatedEquipment: 1885678.88, originalEstimatedSubcontracts: 2160170, originalEstimatedOther: 171000, revisedEstimatedCost: 11619116.68, revisedEstimatedLabor: 2968103.45, revisedEstimatedLaborHours: 43469.7, revisedEstimatedMaterials: 1989256.4, revisedEstimatedEquipment: 3090242.18, revisedEstimatedSubcontracts: 2913555.93, revisedEstimatedOther: 140801, originalEstimatedProfit: 825620.07, originalEstimatedProfitMargin: 0.1003, revisedEstimatedProfit: 1515866.32, revisedEstimatedProfitMargin: 0.1154, finalProfit: 1515866.32, finalGrossProfitMargin: 0.1154, gainFadeOrgFinalDollars: 690246.25, gainFadeOrgFinalPercent: 0.0151, gainFadeRevFinalPercent: 0, overallGainFade: "Gain" },
-  { customerName: "J&J WORLDWIDE SERVICES", division: "SPC", projectName: "MCRD building 595 chiller", projectNumber: "20486", yearCompleted: 2023, marketSegment: "DOD", originalContractValue: 156700, revisedContractValue: 156700, finalContractValue: 156700, finalCost: 115278.01, finalLabor: 6242.99, finalLaborHours: 104, finalMaterials: 1578.1, finalEquipment: 93901.97, finalSubcontracts: 2000, finalOther: 694, originalEstimatedCost: 115278, originalEstimatedLabor: 7760, originalEstimatedLaborHours: 104, originalEstimatedMaterials: 2364.04, originalEstimatedEquipment: 93901.97, originalEstimatedSubcontracts: 6000, originalEstimatedOther: 1500, revisedEstimatedCost: 115278.01, revisedEstimatedLabor: 7760, revisedEstimatedLaborHours: 104, revisedEstimatedMaterials: 2364.04, revisedEstimatedEquipment: 93901.97, revisedEstimatedSubcontracts: 6000, revisedEstimatedOther: 1500, originalEstimatedProfit: 41421.99, originalEstimatedProfitMargin: 0.2643, revisedEstimatedProfit: 41421.99, revisedEstimatedProfitMargin: 0.2643, finalProfit: 41421.99, finalGrossProfitMargin: 0.2643, gainFadeOrgFinalDollars: 0, gainFadeOrgFinalPercent: 0, gainFadeRevFinalPercent: 0, overallGainFade: "Gain" },
-  { customerName: "THERMO FISHER SCIENTIFIC PSG CORPORATION", division: "SPC", projectName: "THERMO FISHER - 5791 VAW - UTILITY RM EXHAUST", projectNumber: "20527", yearCompleted: 2023, marketSegment: "BIO", originalContractValue: 27257, revisedContractValue: 27257, finalContractValue: 27257, finalCost: 19079.9, finalLabor: 3534.96, finalLaborHours: 68, finalMaterials: 461.67, finalEquipment: 4256.13, finalSubcontracts: 3916, finalOther: 299.03, originalEstimatedCost: 19080, originalEstimatedLabor: 4840, originalEstimatedLaborHours: 68, originalEstimatedMaterials: 989.15, originalEstimatedEquipment: 6077.75, originalEstimatedSubcontracts: 4350, originalEstimatedOther: 545, revisedEstimatedCost: 19079.9, revisedEstimatedLabor: 4840, revisedEstimatedLaborHours: 68, revisedEstimatedMaterials: 989.15, revisedEstimatedEquipment: 6077.75, revisedEstimatedSubcontracts: 4350, revisedEstimatedOther: 545, originalEstimatedProfit: 8177.1, originalEstimatedProfitMargin: 0.3, revisedEstimatedProfit: 8177.1, revisedEstimatedProfitMargin: 0.3, finalProfit: 8177.1, finalGrossProfitMargin: 0.3, gainFadeOrgFinalDollars: 0, gainFadeOrgFinalPercent: 0, gainFadeRevFinalPercent: 0, overallGainFade: "Gain" },
-  { customerName: "LIFE TECHNOLOGIES CORPORATION", division: "SPC", projectName: "THERMO - 5781 VAW - (9) FAN WALL RETROFITS", projectNumber: "20547", yearCompleted: 2023, marketSegment: "BIO", originalContractValue: 995957, revisedContractValue: 995957, finalContractValue: 995957, finalCost: 779834.36, finalLabor: 48193.42, finalLaborHours: 992, finalMaterials: 17265.24, finalEquipment: 449429.56, finalSubcontracts: 158385, finalOther: 931.16, originalEstimatedCost: 779834, originalEstimatedLabor: 87048, originalEstimatedLaborHours: 992, originalEstimatedMaterials: 29092.5, originalEstimatedEquipment: 457671.36, originalEstimatedSubcontracts: 168800, originalEstimatedOther: 3990.5, revisedEstimatedCost: 779834.36, revisedEstimatedLabor: 87048, revisedEstimatedLaborHours: 992, revisedEstimatedMaterials: 29092.5, revisedEstimatedEquipment: 457671.36, revisedEstimatedSubcontracts: 168800, revisedEstimatedOther: 3990.5, originalEstimatedProfit: 216122.64, originalEstimatedProfitMargin: 0.217, revisedEstimatedProfit: 216122.64, revisedEstimatedProfitMargin: 0.217, finalProfit: 216122.64, finalGrossProfitMargin: 0.217, gainFadeOrgFinalDollars: 0, gainFadeOrgFinalPercent: 0, gainFadeRevFinalPercent: 0, overallGainFade: "Gain" },
-  { customerName: "SCHNEIDER ELECTRIC BUILDINGS", division: "CTG", projectName: "NAVY NBC ADDITIONAL POD's", projectNumber: "63364", yearCompleted: 2023, marketSegment: "MIL", originalContractValue: 1024755, revisedContractValue: 1076457.14, finalContractValue: 1076457.14, finalCost: 743378.57, finalLabor: 208763.54, finalLaborHours: 2406, finalMaterials: 61999.99, finalEquipment: 0, finalSubcontracts: 337671, finalOther: 51898.37, originalEstimatedCost: 706891, originalEstimatedLabor: 153012, originalEstimatedLaborHours: 2066, originalEstimatedMaterials: 92144.57, originalEstimatedEquipment: 0, originalEstimatedSubcontracts: 350919, originalEstimatedOther: 61231, revisedEstimatedCost: 743378.57, revisedEstimatedLabor: 171797, revisedEstimatedLaborHours: 2406, revisedEstimatedMaterials: 93229.57, revisedEstimatedEquipment: 0, revisedEstimatedSubcontracts: 350919, revisedEstimatedOther: 66526, originalEstimatedProfit: 317864.43, originalEstimatedProfitMargin: 0.3102, revisedEstimatedProfit: 333078.57, revisedEstimatedProfitMargin: 0.3094, finalProfit: 333078.57, finalGrossProfitMargin: 0.3094, gainFadeOrgFinalDollars: 15214.14, gainFadeOrgFinalPercent: -0.0008, gainFadeRevFinalPercent: 0, overallGainFade: "Fade" },
-  { customerName: "RUDOLPH AND SLETTEN", division: "CTG", projectName: "SDG&E METRO RESTROOM PROJECT", projectNumber: "63381", yearCompleted: 2023, marketSegment: "ENGY", originalContractValue: 79100, revisedContractValue: 108946, finalContractValue: 108946, finalCost: 90543.44, finalLabor: 44187.44, finalLaborHours: 380, finalMaterials: 9571.64, finalEquipment: 34102.55, finalSubcontracts: 5150, finalOther: 924, originalEstimatedCost: 62903, originalEstimatedLabor: 20768, originalEstimatedLaborHours: 288, originalEstimatedMaterials: 6004.91, originalEstimatedEquipment: 19944.53, originalEstimatedSubcontracts: 5400, originalEstimatedOther: 2650, revisedEstimatedCost: 90543.44, revisedEstimatedLabor: 28494, revisedEstimatedLaborHours: 380, revisedEstimatedMaterials: 8151.91, revisedEstimatedEquipment: 33833.53, revisedEstimatedSubcontracts: 5900, revisedEstimatedOther: 3150, originalEstimatedProfit: 16196.56, originalEstimatedProfitMargin: 0.2048, revisedEstimatedProfit: 18402.56, revisedEstimatedProfitMargin: 0.1689, finalProfit: 18402.56, finalGrossProfitMargin: 0.1689, gainFadeOrgFinalDollars: 2206, gainFadeOrgFinalPercent: -0.0358, gainFadeRevFinalPercent: 0, overallGainFade: "Fade" },
-  { customerName: "QUALCOMM INCORPORATED", division: "SPC", projectName: "Qualcomm AQ chiller-(40038)", projectNumber: "20490", yearCompleted: 2023, marketSegment: "COM", originalContractValue: 254348, revisedContractValue: 254348, finalContractValue: 254348, finalCost: 203478.54, finalLabor: 82185.73, finalLaborHours: 928, finalMaterials: 60958.28, finalEquipment: 0, finalSubcontracts: 47170.18, finalOther: 473.6, originalEstimatedCost: 203479, originalEstimatedLabor: 73088, originalEstimatedLaborHours: 928, originalEstimatedMaterials: 55022.54, originalEstimatedEquipment: 0, originalEstimatedSubcontracts: 43280, originalEstimatedOther: 1000, revisedEstimatedCost: 203478.54, revisedEstimatedLabor: 73088, revisedEstimatedLaborHours: 928, revisedEstimatedMaterials: 55022.54, revisedEstimatedEquipment: 0, revisedEstimatedSubcontracts: 43280, revisedEstimatedOther: 1000, originalEstimatedProfit: 50869.46, originalEstimatedProfitMargin: 0.2, revisedEstimatedProfit: 50869.46, revisedEstimatedProfitMargin: 0.2, finalProfit: 50869.46, finalGrossProfitMargin: 0.2, gainFadeOrgFinalDollars: 0, gainFadeOrgFinalPercent: 0, gainFadeRevFinalPercent: 0, overallGainFade: "Gain" },
-  { customerName: "UNISPACE", division: "CTG", projectName: "ABBOTT LAB/OFFICE PROJECT", projectNumber: "63358", yearCompleted: 2023, marketSegment: "CTG", originalContractValue: 2095304, revisedContractValue: 2928131.35, finalContractValue: 2928131.35, finalCost: 2314027.45, finalLabor: 874886.22, finalLaborHours: 10518, finalMaterials: 314304.59, finalEquipment: 149656.43, finalSubcontracts: 802668.69, finalOther: 9869.61, originalEstimatedCost: 1609644, originalEstimatedLabor: 479499, originalEstimatedLaborHours: 6901, originalEstimatedMaterials: 255599.16, originalEstimatedEquipment: 125265.86, originalEstimatedSubcontracts: 566710, originalEstimatedOther: 30150, revisedEstimatedCost: 2314027.45, revisedEstimatedLabor: 715959, revisedEstimatedLaborHours: 10518, revisedEstimatedMaterials: 341327.91, revisedEstimatedEquipment: 189924.14, revisedEstimatedSubcontracts: 801536, revisedEstimatedOther: 30150, originalEstimatedProfit: 485659.98, originalEstimatedProfitMargin: 0.2318, revisedEstimatedProfit: 614103.9, revisedEstimatedProfitMargin: 0.2097, finalProfit: 614103.9, finalGrossProfitMargin: 0.2097, gainFadeOrgFinalDollars: 128443.92, gainFadeOrgFinalPercent: -0.0221, gainFadeRevFinalPercent: 0, overallGainFade: "Fade" },
-  { customerName: "CANNON BUILDING", division: "CTG", projectName: "SCRIPPS MBB GNOTOBIOTIC LAB", projectNumber: "63349", yearCompleted: 2023, marketSegment: "HOSPITAL", originalContractValue: 804200, revisedContractValue: 882085, finalContractValue: 882085, finalCost: 776722.49, finalLabor: 273029.13, finalLaborHours: 3378, finalMaterials: 104497.72, finalEquipment: 221104.12, finalSubcontracts: 111152.21, finalOther: 18346.9, originalEstimatedCost: 713149, originalEstimatedLabor: 186507.6, originalEstimatedLaborHours: 2795, originalEstimatedMaterials: 121067.91, originalEstimatedEquipment: 215923.47, originalEstimatedSubcontracts: 97688, originalEstimatedOther: 25393, revisedEstimatedCost: 776722.49, revisedEstimatedLabor: 226070.1, revisedEstimatedLaborHours: 3378, revisedEstimatedMaterials: 114949.19, revisedEstimatedEquipment: 220914.47, revisedEstimatedSubcontracts: 109911.3, revisedEstimatedOther: 24991, originalEstimatedProfit: 91050.59, originalEstimatedProfitMargin: 0.1132, revisedEstimatedProfit: 105362.51, revisedEstimatedProfitMargin: 0.1194, finalProfit: 105362.51, finalGrossProfitMargin: 0.1194, gainFadeOrgFinalDollars: 14311.92, gainFadeOrgFinalPercent: 0.0062, gainFadeRevFinalPercent: 0, overallGainFade: "Gain" },
-  { customerName: "DPR CONSTRUCTION", division: "CTG", projectName: "CSUSM TOCA", projectNumber: "63331", yearCompleted: 2023, marketSegment: "CP", originalContractValue: 400000, revisedContractValue: 428004, finalContractValue: 428004, finalCost: 382576.68, finalLabor: 121996.48, finalLaborHours: 1171, finalMaterials: 24517.48, finalEquipment: 202960.8, finalSubcontracts: 39330, finalOther: 5511.98, originalEstimatedCost: 355386, originalEstimatedLabor: 67760, originalEstimatedLaborHours: 973, originalEstimatedMaterials: 21425.13, originalEstimatedEquipment: 203333.95, originalEstimatedSubcontracts: 33980, originalEstimatedOther: 6200, revisedEstimatedCost: 382576.68, revisedEstimatedLabor: 80380, revisedEstimatedLaborHours: 1171, revisedEstimatedMaterials: 27546.13, revisedEstimatedEquipment: 203333.95, revisedEstimatedSubcontracts: 37530, revisedEstimatedOther: 6200, originalEstimatedProfit: 44614.32, originalEstimatedProfitMargin: 0.1115, revisedEstimatedProfit: 45427.32, revisedEstimatedProfitMargin: 0.1061, finalProfit: 45427.32, finalGrossProfitMargin: 0.1061, gainFadeOrgFinalDollars: 813, gainFadeOrgFinalPercent: -0.0054, gainFadeRevFinalPercent: 0, overallGainFade: "Fade" },
-  { customerName: "UCSD MEDICAL CENTER", division: "CTG", projectName: "UCSD MED CENTER T&M", projectNumber: "63264", yearCompleted: 2023, marketSegment: "HOSPITAL", originalContractValue: 3889, revisedContractValue: 326058.28, finalContractValue: 326058.28, finalCost: 246942.54, finalLabor: 175980.51, finalLaborHours: 2208.11, finalMaterials: 34522.34, finalEquipment: 9637.16, finalSubcontracts: 0, finalOther: 0, originalEstimatedCost: 3344, originalEstimatedLabor: 150, originalEstimatedLaborHours: 3, originalEstimatedMaterials: 0, originalEstimatedEquipment: 3115.8, originalEstimatedSubcontracts: 0, originalEstimatedOther: 0, revisedEstimatedCost: 246942.54, revisedEstimatedLabor: 152219.5, revisedEstimatedLaborHours: 2208.11, revisedEstimatedMaterials: 30060.19, revisedEstimatedEquipment: 7424.8, revisedEstimatedSubcontracts: 0, revisedEstimatedOther: 0, originalEstimatedProfit: 545.2, originalEstimatedProfitMargin: 0.1402, revisedEstimatedProfit: 79115.74, revisedEstimatedProfitMargin: 0.2426, finalProfit: 79115.74, finalGrossProfitMargin: 0.2426, gainFadeOrgFinalDollars: 78570.54, gainFadeOrgFinalPercent: 0.1025, gainFadeRevFinalPercent: 0, overallGainFade: "Gain" },
-  { customerName: "SDGESEMPRA ENERGY", division: "CTG", projectName: "SDG&E METRO A INTELLIPAK & BOILER RPLC", projectNumber: "63385", yearCompleted: 2023, marketSegment: "ENGY", originalContractValue: 391473, revisedContractValue: 398002.6, finalContractValue: 398002.6, finalCost: 344536.06, finalLabor: 30575.12, finalLaborHours: 352, finalMaterials: 7601.41, finalEquipment: 258163.32, finalSubcontracts: 13177, finalOther: 7789, originalEstimatedCost: 338600, originalEstimatedLabor: 34224, originalEstimatedLaborHours: 352, originalEstimatedMaterials: 12337.38, originalEstimatedEquipment: 251168.48, originalEstimatedSubcontracts: 22163, originalEstimatedOther: 9300, revisedEstimatedCost: 344536.06, revisedEstimatedLabor: 34224, revisedEstimatedLaborHours: 352, revisedEstimatedMaterials: 12337.38, revisedEstimatedEquipment: 257104.48, revisedEstimatedSubcontracts: 22163, revisedEstimatedOther: 9300, originalEstimatedProfit: 52872.94, originalEstimatedProfitMargin: 0.1351, revisedEstimatedProfit: 53466.54, revisedEstimatedProfitMargin: 0.1343, finalProfit: 53466.54, finalGrossProfitMargin: 0.1343, gainFadeOrgFinalDollars: 593.6, gainFadeOrgFinalPercent: -0.0007, gainFadeRevFinalPercent: 0, overallGainFade: "Fade" },
-  { customerName: "CORONADO SHORES #9 EL MIRADOR TOWER", division: "SPC", projectName: "Coronado Shores - El Mirador - Boiler Plant", projectNumber: "20502", yearCompleted: 2023, marketSegment: "COM", originalContractValue: 401888, revisedContractValue: 401888, finalContractValue: 401888, finalCost: 329548.04, finalLabor: 64521, finalLaborHours: 928, finalMaterials: 24104.51, finalEquipment: 147118.28, finalSubcontracts: 31610, finalOther: 11924, originalEstimatedCost: 329548, originalEstimatedLabor: 69352, originalEstimatedLaborHours: 928, originalEstimatedMaterials: 14470.29, originalEstimatedEquipment: 160008.75, originalEstimatedSubcontracts: 34970, originalEstimatedOther: 23371, revisedEstimatedCost: 329548.04, revisedEstimatedLabor: 69352, revisedEstimatedLaborHours: 928, revisedEstimatedMaterials: 14470.29, revisedEstimatedEquipment: 160008.75, revisedEstimatedSubcontracts: 34970, revisedEstimatedOther: 23371, originalEstimatedProfit: 72339.96, originalEstimatedProfitMargin: 0.18, revisedEstimatedProfit: 72339.96, revisedEstimatedProfitMargin: 0.18, finalProfit: 72339.96, finalGrossProfitMargin: 0.18, gainFadeOrgFinalDollars: 0, gainFadeOrgFinalPercent: 0, gainFadeRevFinalPercent: 0, overallGainFade: "Gain" },
-  { customerName: "CUSHMAN & WAKEFIELD", division: "SPC", projectName: "Rio Bonito Way", projectNumber: "20505", yearCompleted: 2023, marketSegment: "OFFICE", originalContractValue: 226725, revisedContractValue: 226725, finalContractValue: 226725, finalCost: 184780.52, finalLabor: 10030.34, finalLaborHours: 108, finalMaterials: 1843.94, finalEquipment: 158450.69, finalSubcontracts: 4580, finalOther: 4702.5, originalEstimatedCost: 184781, originalEstimatedLabor: 10588, originalEstimatedLaborHours: 108, originalEstimatedMaterials: 3987.83, originalEstimatedEquipment: 158450.69, originalEstimatedSubcontracts: 4580, originalEstimatedOther: 3556, revisedEstimatedCost: 184780.52, revisedEstimatedLabor: 10588, revisedEstimatedLaborHours: 108, revisedEstimatedMaterials: 3987.83, revisedEstimatedEquipment: 158450.69, revisedEstimatedSubcontracts: 4580, revisedEstimatedOther: 3556, originalEstimatedProfit: 41944.48, originalEstimatedProfitMargin: 0.185, revisedEstimatedProfit: 41944.48, revisedEstimatedProfitMargin: 0.185, finalProfit: 41944.48, finalGrossProfitMargin: 0.185, gainFadeOrgFinalDollars: 0, gainFadeOrgFinalPercent: 0, gainFadeRevFinalPercent: 0, overallGainFade: "Gain" },
-  { customerName: "JMI REALTY", division: "SPC", projectName: "EVDP COOLING TOWER REPLACEMENT", projectNumber: "20536", yearCompleted: 2023, marketSegment: "COM", originalContractValue: 440868, revisedContractValue: 440868, finalContractValue: 440868, finalCost: 365920.1, finalLabor: 20001.24, finalLaborHours: 384, finalMaterials: 4067.84, finalEquipment: 301553.46, finalSubcontracts: 8850, finalOther: 4158, originalEstimatedCost: 365920, originalEstimatedLabor: 29136, originalEstimatedLaborHours: 384, originalEstimatedMaterials: 7516.64, originalEstimatedEquipment: 301553.46, originalEstimatedSubcontracts: 8850, originalEstimatedOther: 6000, revisedEstimatedCost: 365920.1, revisedEstimatedLabor: 29136, revisedEstimatedLaborHours: 384, revisedEstimatedMaterials: 7516.64, revisedEstimatedEquipment: 301553.46, revisedEstimatedSubcontracts: 8850, revisedEstimatedOther: 6000, originalEstimatedProfit: 74947.9, originalEstimatedProfitMargin: 0.17, revisedEstimatedProfit: 74947.9, revisedEstimatedProfitMargin: 0.17, finalProfit: 74947.9, finalGrossProfitMargin: 0.17, gainFadeOrgFinalDollars: 0, gainFadeOrgFinalPercent: 0, gainFadeRevFinalPercent: 0, overallGainFade: "Gain" },
-  { customerName: "UNION YES -S D IMPERIAL", division: "SPC", projectName: "United Labor - Mechanical Scope VAV Replacement Project-(40046)", projectNumber: "20545", yearCompleted: 2023, marketSegment: "COM", originalContractValue: 368000, revisedContractValue: 402800, finalContractValue: 402800, finalCost: 280483.93, finalLabor: 94268.84, finalLaborHours: 1392, finalMaterials: 19768.74, finalEquipment: 26698.67, finalSubcontracts: 29430, finalOther: 320, originalEstimatedCost: 256021, originalEstimatedLabor: 95308, originalEstimatedLaborHours: 1220, originalEstimatedMaterials: 26227.43, originalEstimatedEquipment: 47185.43, originalEstimatedSubcontracts: 44430, originalEstimatedOther: 2000, revisedEstimatedCost: 280483.93, revisedEstimatedLabor: 109088, revisedEstimatedLaborHours: 1392, revisedEstimatedMaterials: 29648.5, revisedEstimatedEquipment: 47185.43, revisedEstimatedSubcontracts: 45930, revisedEstimatedOther: 2000, originalEstimatedProfit: 111979.14, originalEstimatedProfitMargin: 0.3043, revisedEstimatedProfit: 122316.07, revisedEstimatedProfitMargin: 0.3037, finalProfit: 122316.07, finalGrossProfitMargin: 0.3037, gainFadeOrgFinalDollars: 10336.93, gainFadeOrgFinalPercent: -0.0006, gainFadeRevFinalPercent: 0, overallGainFade: "Fade" },
-  { customerName: "SHARP HEALTHCARE", division: "SPC", projectName: "SHARP GROSSMONT - OSHPD - MEDICAL AIR COMPRESSOR", projectNumber: "20499", yearCompleted: 2023, marketSegment: "HOSPITAL", originalContractValue: 203888, revisedContractValue: 212366.36, finalContractValue: 212366.36, finalCost: 151287.6, finalLabor: 45554.24, finalLaborHours: 553, finalMaterials: 6612.11, finalEquipment: 0, finalSubcontracts: 35189, finalOther: 34761.65, originalEstimatedCost: 144760, originalEstimatedLabor: 42088, originalEstimatedLaborHours: 520, originalEstimatedMaterials: 8713.24, originalEstimatedEquipment: 0, originalEstimatedSubcontracts: 40789, originalEstimatedOther: 35750, revisedEstimatedCost: 151287.6, revisedEstimatedLabor: 44424, revisedEstimatedLaborHours: 553, revisedEstimatedMaterials: 8713.24, revisedEstimatedEquipment: 0, revisedEstimatedSubcontracts: 44125, revisedEstimatedOther: 35750, originalEstimatedProfit: 59127.76, originalEstimatedProfitMargin: 0.29, revisedEstimatedProfit: 61078.76, revisedEstimatedProfitMargin: 0.2876, finalProfit: 61078.76, finalGrossProfitMargin: 0.2876, gainFadeOrgFinalDollars: 1951, gainFadeOrgFinalPercent: -0.0024, gainFadeRevFinalPercent: 0, overallGainFade: "Fade" },
-  { customerName: "CUSHMAN & WAKEFIELD- BMR-BUNKER HILL LP", division: "SPC", projectName: "OXFORD - CUSH WAKE - SMOKE FIRE DAMPERS", projectNumber: "20592", yearCompleted: 2023, marketSegment: "BIO", originalContractValue: 24880, revisedContractValue: 44661, finalContractValue: 44661, finalCost: 32602.26, finalLabor: 7377.21, finalLaborHours: 70, finalMaterials: 5515.33, finalEquipment: 0, finalSubcontracts: 14391.32, finalOther: 0, originalEstimatedCost: 18162, originalEstimatedLabor: 4388, originalEstimatedLaborHours: 66, originalEstimatedMaterials: 5563.4, originalEstimatedEquipment: 0, originalEstimatedSubcontracts: 6000, originalEstimatedOther: 0, revisedEstimatedCost: 32602.26, revisedEstimatedLabor: 8198, revisedEstimatedLaborHours: 70, revisedEstimatedMaterials: 5219.26, revisedEstimatedEquipment: 0, revisedEstimatedSubcontracts: 15500, revisedEstimatedOther: 0, originalEstimatedProfit: 6717.6, originalEstimatedProfitMargin: 0.27, revisedEstimatedProfit: 12058.74, revisedEstimatedProfitMargin: 0.27, finalProfit: 12058.74, finalGrossProfitMargin: 0.27, gainFadeOrgFinalDollars: 5341.14, gainFadeOrgFinalPercent: 0, gainFadeRevFinalPercent: 0, overallGainFade: "Gain" },
-  { customerName: "THE IRVINE COMPANY", division: "SPC", projectName: "IRVINE - ONE AMERICA - CHILLER VSD", projectNumber: "20409", yearCompleted: 2023, marketSegment: "COM", originalContractValue: 159888, revisedContractValue: 135434, finalContractValue: 135434, finalCost: 135463.97, finalLabor: 33310.53, finalLaborHours: 105, finalMaterials: 6105.77, finalEquipment: 93907.17, finalSubcontracts: 27153, finalOther: 1884.51, originalEstimatedCost: 139103, originalEstimatedLabor: 5520, originalEstimatedLaborHours: 64, originalEstimatedMaterials: 503.73, originalEstimatedEquipment: 128130.91, originalEstimatedSubcontracts: 3060, originalEstimatedOther: 0, revisedEstimatedCost: 135463.97, revisedEstimatedLabor: 8560, revisedEstimatedLaborHours: 105, revisedEstimatedMaterials: 1860.81, revisedEstimatedEquipment: 91958.16, revisedEstimatedSubcontracts: 29601, revisedEstimatedOther: 0, originalEstimatedProfit: 20785.36, originalEstimatedProfitMargin: 0.13, revisedEstimatedProfit: -29.97, revisedEstimatedProfitMargin: -0.0002, finalProfit: -29.97, finalGrossProfitMargin: -0.0002, gainFadeOrgFinalDollars: -20815.33, gainFadeOrgFinalPercent: -0.1302, gainFadeRevFinalPercent: 0, overallGainFade: "Fade" },
-  { customerName: "UNIVERSITY TOWERS AT SDSU", division: "SPC", projectName: "University Towers Boilers R&R", projectNumber: "20497", yearCompleted: 2023, marketSegment: "COLLEGE", originalContractValue: 136633, revisedContractValue: 158251, finalContractValue: 158251, finalCost: 124551.5, finalLabor: 23514.57, finalLaborHours: 341, finalMaterials: 7771.92, finalEquipment: 60207.47, finalSubcontracts: 5567, finalOther: 474.22, originalEstimatedCost: 107257, originalEstimatedLabor: 22201, originalEstimatedLaborHours: 291, originalEstimatedMaterials: 7743.46, originalEstimatedEquipment: 61564.04, originalEstimatedSubcontracts: 5500, originalEstimatedOther: 500, revisedEstimatedCost: 124551.5, revisedEstimatedLabor: 25915, revisedEstimatedLaborHours: 341, revisedEstimatedMaterials: 17148.96, revisedEstimatedEquipment: 61564.04, revisedEstimatedSubcontracts: 8000, revisedEstimatedOther: 500, originalEstimatedProfit: 29376, originalEstimatedProfitMargin: 0.215, revisedEstimatedProfit: 33699.5, revisedEstimatedProfitMargin: 0.2130, finalProfit: 33699.5, finalGrossProfitMargin: 0.2130, gainFadeOrgFinalDollars: 4323.5, gainFadeOrgFinalPercent: -0.0020, gainFadeRevFinalPercent: 0, overallGainFade: "Fade" },
-  { customerName: "QUALCOMM INCORPORATED", division: "CNTL", projectName: "QUALCOMM AP CONTROLS UPGRADE (20490)", projectNumber: "40038", yearCompleted: 2023, marketSegment: "SSC", originalContractValue: 81313, revisedContractValue: 116606.18, finalContractValue: 116606.18, finalCost: 91381.76, finalLabor: 29255.73, finalLaborHours: 324, finalMaterials: 39325.7, finalEquipment: 0, finalSubcontracts: 6000, finalOther: 0, originalEstimatedCost: 66677, originalEstimatedLabor: 17952, originalEstimatedLaborHours: 244, originalEstimatedMaterials: 34550.81, originalEstimatedEquipment: 0, originalEstimatedSubcontracts: 6000, originalEstimatedOther: 0, revisedEstimatedCost: 91381.76, revisedEstimatedLabor: 24880, revisedEstimatedLaborHours: 324, revisedEstimatedMaterials: 49647.76, revisedEstimatedEquipment: 0, revisedEstimatedSubcontracts: 6000, revisedEstimatedOther: 0, originalEstimatedProfit: 14636.37, originalEstimatedProfitMargin: 0.18, revisedEstimatedProfit: 25224.42, revisedEstimatedProfitMargin: 0.2163, finalProfit: 25224.42, finalGrossProfitMargin: 0.2163, gainFadeOrgFinalDollars: 10588.05, gainFadeOrgFinalPercent: 0.0363, gainFadeRevFinalPercent: 0, overallGainFade: "Gain" },
-  { customerName: "Scholarship Schools", division: "SPC", projectName: "Scholarship Schools Oceanside AB841 plumbing", projectNumber: "20537", yearCompleted: 2023, marketSegment: "K12", originalContractValue: 17230, revisedContractValue: 8615, finalContractValue: 8615, finalCost: 12112.01, finalLabor: 3354.17, finalLaborHours: 37, finalMaterials: 200.64, finalEquipment: 3928.28, finalSubcontracts: 0, finalOther: 0, originalEstimatedCost: 13267, originalEstimatedLabor: 4344, originalEstimatedLaborHours: 56, originalEstimatedMaterials: 0, originalEstimatedEquipment: 5546.97, originalEstimatedSubcontracts: 0, originalEstimatedOther: 1500, revisedEstimatedCost: 12112.01, revisedEstimatedLabor: 4210, revisedEstimatedLaborHours: 37, revisedEstimatedMaterials: 201.12, revisedEstimatedEquipment: 3961.39, revisedEstimatedSubcontracts: 0, revisedEstimatedOther: 2500, originalEstimatedProfit: 3963.03, originalEstimatedProfitMargin: 0.23, revisedEstimatedProfit: -3497.01, revisedEstimatedProfitMargin: -0.4059, finalProfit: -3497.01, finalGrossProfitMargin: -0.4059, gainFadeOrgFinalDollars: -7460.04, gainFadeOrgFinalPercent: -0.6359, gainFadeRevFinalPercent: 0, overallGainFade: "Fade" },
-  { customerName: "J&J WORLDWIDE SERVICES", division: "SPC", projectName: "JJWWS Naval Med Center Bldg 624 Boiler 2", projectNumber: "20561", yearCompleted: 2023, marketSegment: "FED", originalContractValue: 164067, revisedContractValue: 164067, finalContractValue: 164067, finalCost: 121409.45, finalLabor: 19508.42, finalLaborHours: 311, finalMaterials: 12673.86, finalEquipment: 63443.86, finalSubcontracts: 2801, finalOther: 590.44, originalEstimatedCost: 121409, originalEstimatedLabor: 23039, originalEstimatedLaborHours: 311, originalEstimatedMaterials: 15600.04, originalEstimatedEquipment: 65204.91, originalEstimatedSubcontracts: 4600, originalEstimatedOther: 2547, revisedEstimatedCost: 121409.45, revisedEstimatedLabor: 23039, revisedEstimatedLaborHours: 311, revisedEstimatedMaterials: 15600.04, revisedEstimatedEquipment: 65204.91, revisedEstimatedSubcontracts: 4600, revisedEstimatedOther: 2547, originalEstimatedProfit: 42657.55, originalEstimatedProfitMargin: 0.26, revisedEstimatedProfit: 42657.55, revisedEstimatedProfitMargin: 0.26, finalProfit: 42657.55, finalGrossProfitMargin: 0.26, gainFadeOrgFinalDollars: 0, gainFadeOrgFinalPercent: 0, gainFadeRevFinalPercent: 0, overallGainFade: "Gain" },
-  { customerName: "J&J WORLDWIDE SERVICES", division: "SPC", projectName: "JJWWS balboa naval hospital building 9 2 x HHW boiler", projectNumber: "20501", yearCompleted: 2023, marketSegment: "DOD", originalContractValue: 228656, revisedContractValue: 228656, finalContractValue: 228656, finalCost: 166919.05, finalLabor: 27883.58, finalLaborHours: 442, finalMaterials: 9583.61, finalEquipment: 87357.32, finalSubcontracts: 2000, finalOther: 0, originalEstimatedCost: 166919, originalEstimatedLabor: 42845, originalEstimatedLaborHours: 442, originalEstimatedMaterials: 11949.48, originalEstimatedEquipment: 87973.57, originalEstimatedSubcontracts: 2500, originalEstimatedOther: 6844, revisedEstimatedCost: 166919.05, revisedEstimatedLabor: 42845, revisedEstimatedLaborHours: 442, revisedEstimatedMaterials: 11949.48, revisedEstimatedEquipment: 87973.57, revisedEstimatedSubcontracts: 2500, revisedEstimatedOther: 6844, originalEstimatedProfit: 61736.95, originalEstimatedProfitMargin: 0.27, revisedEstimatedProfit: 61736.95, revisedEstimatedProfitMargin: 0.27, finalProfit: 61736.95, finalGrossProfitMargin: 0.27, gainFadeOrgFinalDollars: 0, gainFadeOrgFinalPercent: 0, gainFadeRevFinalPercent: 0, overallGainFade: "Gain" },
+  // ============================================================
+  // 2022 PROJECTS (16 projects)
+  // ============================================================
+
+  // 1. Large healthcare project - FADE (labor overrun on regulated work)
+  buildProject({
+    id: '22-001', name: 'Memorial Hospital Central Plant Upgrade', customer: 'Turner Construction',
+    division: 'Healthcare', segment: 'Healthcare', year: 2022, origValue: 4200000, changeOrderDelta: 380000,
+    origCostBreakdown: { labor: 1092000, laborHours: 14560, materials: 546000, equipment: 1050000, subs: 630000, other: 126000 },
+    revCostBreakdown: { labor: 1248000, laborHours: 16640, materials: 598000, equipment: 1092000, subs: 682000, other: 138000 },
+    finalCostBreakdown: { labor: 1485000, laborHours: 19200, materials: 632000, equipment: 1102000, subs: 695000, other: 152000 },
+  }),
+
+  // 2. Data center - GAIN (well-estimated, efficient execution)
+  buildProject({
+    id: '22-002', name: 'TechVault Data Center Phase 1', customer: 'DPR Construction',
+    division: 'Commercial', segment: 'Data Center', year: 2022, origValue: 8500000, changeOrderDelta: 450000,
+    origCostBreakdown: { labor: 2210000, laborHours: 28050, materials: 1445000, equipment: 2125000, subs: 1020000, other: 255000 },
+    revCostBreakdown: { labor: 2340000, laborHours: 29700, materials: 1520000, equipment: 2200000, subs: 1100000, other: 268000 },
+    finalCostBreakdown: { labor: 2280000, laborHours: 28900, materials: 1490000, equipment: 2180000, subs: 1080000, other: 258000 },
+  }),
+
+  // 3. K-12 school HVAC - GAIN (straightforward scope)
+  buildProject({
+    id: '22-003', name: 'Lincoln Elementary HVAC Modernization', customer: 'Hensel Phelps',
+    division: 'Commercial', segment: 'K-12 Education', year: 2022, origValue: 620000, changeOrderDelta: 35000,
+    origCostBreakdown: { labor: 161200, laborHours: 2150, materials: 93000, equipment: 167400, subs: 68200, other: 18600 },
+    revCostBreakdown: { labor: 170500, laborHours: 2275, materials: 97000, equipment: 172000, subs: 72000, other: 19600 },
+    finalCostBreakdown: { labor: 164000, laborHours: 2190, materials: 94500, equipment: 170000, subs: 70000, other: 18800 },
+  }),
+
+  // 4. Federal courthouse - FADE (scope creep, poor change order management)
+  buildProject({
+    id: '22-004', name: 'Federal Courthouse MEP Renovation', customer: 'Clark Construction',
+    division: 'Commercial', segment: 'Federal Government', year: 2022, origValue: 3100000, changeOrderDelta: 290000,
+    origCostBreakdown: { labor: 806000, laborHours: 10750, materials: 496000, equipment: 651000, subs: 527000, other: 93000 },
+    revCostBreakdown: { labor: 880000, laborHours: 11730, materials: 535000, equipment: 680000, subs: 565000, other: 101000 },
+    finalCostBreakdown: { labor: 1020000, laborHours: 13500, materials: 578000, equipment: 712000, subs: 598000, other: 118000 },
+  }),
+
+  // 5. Senior living - GAIN (repeat client, good relationship)
+  buildProject({
+    id: '22-005', name: 'Parkside Senior Living HVAC Install', customer: 'Swinerton',
+    division: 'Residential', segment: 'Senior Living', year: 2022, origValue: 1800000, changeOrderDelta: 120000,
+    origCostBreakdown: { labor: 468000, laborHours: 6240, materials: 288000, equipment: 396000, subs: 252000, other: 72000 },
+    revCostBreakdown: { labor: 500000, laborHours: 6670, materials: 307000, equipment: 415000, subs: 268000, other: 76800 },
+    finalCostBreakdown: { labor: 485000, laborHours: 6470, materials: 298000, equipment: 408000, subs: 260000, other: 74000 },
+  }),
+
+  // 6. Life sciences cleanroom - BIG FADE (complexity, contamination protocols)
+  buildProject({
+    id: '22-006', name: 'Biotech Research Lab Cleanroom MEP', customer: 'McCarthy Building Companies',
+    division: 'Healthcare', segment: 'Life Sciences', year: 2022, origValue: 5200000, changeOrderDelta: 680000,
+    origCostBreakdown: { labor: 1352000, laborHours: 18030, materials: 832000, equipment: 1196000, subs: 780000, other: 156000 },
+    revCostBreakdown: { labor: 1530000, laborHours: 20400, materials: 940000, equipment: 1290000, subs: 870000, other: 176000 },
+    finalCostBreakdown: { labor: 1890000, laborHours: 24800, materials: 1045000, equipment: 1350000, subs: 920000, other: 210000 },
+  }),
+
+  // 7. Office TI - GAIN (simple scope)
+  buildProject({
+    id: '22-007', name: '200 Market Street Office Build-Out', customer: 'Hines',
+    division: 'Commercial', segment: 'Office / Commercial', year: 2022, origValue: 450000, changeOrderDelta: 28000,
+    origCostBreakdown: { labor: 117000, laborHours: 1560, materials: 67500, equipment: 94500, subs: 63000, other: 18000 },
+    revCostBreakdown: { labor: 124000, laborHours: 1655, materials: 71500, equipment: 98000, subs: 66000, other: 19000 },
+    finalCostBreakdown: { labor: 119000, laborHours: 1590, materials: 68000, equipment: 96000, subs: 64500, other: 18200 },
+  }),
+
+  // 8. Multifamily - GAIN (efficient crew, good prefab)
+  buildProject({
+    id: '22-008', name: 'The Vue Apartments Plumbing & HVAC', customer: 'Greystar Development',
+    division: 'Residential', segment: 'Multifamily', year: 2022, origValue: 2800000, changeOrderDelta: 195000,
+    origCostBreakdown: { labor: 728000, laborHours: 9710, materials: 476000, equipment: 560000, subs: 420000, other: 112000 },
+    revCostBreakdown: { labor: 780000, laborHours: 10400, materials: 510000, equipment: 590000, subs: 449000, other: 120000 },
+    finalCostBreakdown: { labor: 755000, laborHours: 10070, materials: 495000, equipment: 580000, subs: 440000, other: 115000 },
+  }),
+
+  // 9. Hotel renovation - FADE (occupied building complications)
+  buildProject({
+    id: '22-009', name: 'Harbor Hotel Mechanical Renovation', customer: 'Suffolk Construction',
+    division: 'Commercial', segment: 'Hospitality', year: 2022, origValue: 890000, changeOrderDelta: 85000,
+    origCostBreakdown: { labor: 231400, laborHours: 3085, materials: 133500, equipment: 187000, subs: 124600, other: 35600 },
+    revCostBreakdown: { labor: 253000, laborHours: 3375, materials: 146000, equipment: 195000, subs: 136000, other: 39000 },
+    finalCostBreakdown: { labor: 298000, laborHours: 3940, materials: 158000, equipment: 202000, subs: 142000, other: 42000 },
+  }),
+
+  // 10. Municipal - GAIN (clear specs, stable scope)
+  buildProject({
+    id: '22-010', name: 'City Water Treatment Plant HVAC', customer: 'Skanska USA',
+    division: 'Commercial', segment: 'Municipal Government', year: 2022, origValue: 1500000, changeOrderDelta: 65000,
+    origCostBreakdown: { labor: 390000, laborHours: 5200, materials: 240000, equipment: 345000, subs: 210000, other: 60000 },
+    revCostBreakdown: { labor: 405000, laborHours: 5400, materials: 250000, equipment: 355000, subs: 218000, other: 62000 },
+    finalCostBreakdown: { labor: 395000, laborHours: 5270, materials: 243000, equipment: 350000, subs: 215000, other: 60500 },
+  }),
+
+  // 11. Healthcare OR suite - FADE (OSHPD delays, infection control)
+  buildProject({
+    id: '22-011', name: 'Valley Medical Center OR Suite MEP', customer: 'Webcor Builders',
+    division: 'Healthcare', segment: 'Healthcare', year: 2022, origValue: 1200000, changeOrderDelta: 110000,
+    origCostBreakdown: { labor: 312000, laborHours: 4160, materials: 192000, equipment: 264000, subs: 168000, other: 48000 },
+    revCostBreakdown: { labor: 345000, laborHours: 4600, materials: 210000, equipment: 280000, subs: 183000, other: 52000 },
+    finalCostBreakdown: { labor: 405000, laborHours: 5320, materials: 234000, equipment: 295000, subs: 198000, other: 58000 },
+  }),
+
+  // 12. Corporate chiller - GAIN (equipment replacement, straightforward)
+  buildProject({
+    id: '22-012', name: 'Corporate Campus Chiller Replacement', customer: 'Lincoln Property Company',
+    division: 'Commercial', segment: 'Office / Commercial', year: 2022, origValue: 680000, changeOrderDelta: 0,
+    origCostBreakdown: { labor: 108800, laborHours: 1450, materials: 47600, equipment: 299200, subs: 68000, other: 27200 },
+    revCostBreakdown: { labor: 108800, laborHours: 1450, materials: 47600, equipment: 299200, subs: 68000, other: 27200 },
+    finalCostBreakdown: { labor: 102000, laborHours: 1360, materials: 45000, equipment: 299200, subs: 65000, other: 25500 },
+  }),
+
+  // 13. Higher ed science building - GAIN
+  buildProject({
+    id: '22-013', name: 'State University Science Building MEP', customer: 'Holder Construction',
+    division: 'Commercial', segment: 'Higher Education', year: 2022, origValue: 3600000, changeOrderDelta: 240000,
+    origCostBreakdown: { labor: 936000, laborHours: 12480, materials: 540000, equipment: 792000, subs: 540000, other: 144000 },
+    revCostBreakdown: { labor: 1000000, laborHours: 13340, materials: 576000, equipment: 830000, subs: 576000, other: 153600 },
+    finalCostBreakdown: { labor: 975000, laborHours: 13000, materials: 560000, equipment: 818000, subs: 565000, other: 148000 },
+  }),
+
+  // 14. Industrial HVAC - GAIN
+  buildProject({
+    id: '22-014', name: 'Distribution Center HVAC Installation', customer: 'Rudolph & Sletten',
+    division: 'Commercial', segment: 'Industrial', year: 2022, origValue: 950000, changeOrderDelta: 45000,
+    origCostBreakdown: { labor: 247000, laborHours: 3295, materials: 152000, equipment: 228000, subs: 114000, other: 38000 },
+    revCostBreakdown: { labor: 258000, laborHours: 3440, materials: 159000, equipment: 236000, subs: 119000, other: 39800 },
+    finalCostBreakdown: { labor: 250000, laborHours: 3335, materials: 155000, equipment: 232000, subs: 116500, other: 38500 },
+  }),
+
+  // 15. Retail - FADE (after-hours work, access issues)
+  buildProject({
+    id: '22-015', name: 'Retail Plaza HVAC Retrofit', customer: 'Turner Construction',
+    division: 'Commercial', segment: 'Retail', year: 2022, origValue: 340000, changeOrderDelta: 15000,
+    origCostBreakdown: { labor: 88400, laborHours: 1180, materials: 51000, equipment: 74800, subs: 40800, other: 13600 },
+    revCostBreakdown: { labor: 92000, laborHours: 1230, materials: 53200, equipment: 77000, subs: 42400, other: 14100 },
+    finalCostBreakdown: { labor: 108000, laborHours: 1430, materials: 57000, equipment: 79000, subs: 44500, other: 15200 },
+  }),
+
+  // 16. Small healthcare clinic - GAIN (Whiting-Turner well-managed)
+  buildProject({
+    id: '22-016', name: 'Community Health Clinic MEP', customer: 'Whiting-Turner',
+    division: 'Healthcare', segment: 'Healthcare', year: 2022, origValue: 780000, changeOrderDelta: 42000,
+    origCostBreakdown: { labor: 202800, laborHours: 2705, materials: 117000, equipment: 171600, subs: 93600, other: 31200 },
+    revCostBreakdown: { labor: 214000, laborHours: 2855, materials: 123000, equipment: 180000, subs: 98600, other: 32800 },
+    finalCostBreakdown: { labor: 208000, laborHours: 2775, materials: 119000, equipment: 176000, subs: 96000, other: 31500 },
+  }),
+
+  // ============================================================
+  // 2023 PROJECTS (16 projects)
+  // ============================================================
+
+  // 17. Data center phase 2 - GAIN (learning from phase 1)
+  buildProject({
+    id: '23-001', name: 'TechVault Data Center Phase 2', customer: 'DPR Construction',
+    division: 'Commercial', segment: 'Data Center', year: 2023, origValue: 9200000, changeOrderDelta: 520000,
+    origCostBreakdown: { labor: 2392000, laborHours: 30400, materials: 1564000, equipment: 2300000, subs: 1104000, other: 276000 },
+    revCostBreakdown: { labor: 2530000, laborHours: 32150, materials: 1651000, equipment: 2400000, subs: 1164000, other: 291000 },
+    finalCostBreakdown: { labor: 2450000, laborHours: 31100, materials: 1610000, equipment: 2370000, subs: 1140000, other: 280000 },
+  }),
+
+  // 18. Large healthcare expansion - BIG FADE (the cautionary tale)
+  buildProject({
+    id: '23-002', name: 'Regional Medical Center East Wing', customer: 'Turner Construction',
+    division: 'Healthcare', segment: 'Healthcare', year: 2023, origValue: 6800000, changeOrderDelta: 920000,
+    origCostBreakdown: { labor: 1768000, laborHours: 23575, materials: 1088000, equipment: 1496000, subs: 1020000, other: 204000 },
+    revCostBreakdown: { labor: 2010000, laborHours: 26800, materials: 1235000, equipment: 1620000, subs: 1145000, other: 231000 },
+    finalCostBreakdown: { labor: 2520000, laborHours: 33100, materials: 1390000, equipment: 1720000, subs: 1210000, other: 285000 },
+  }),
+
+  // 19. K-12 new construction - GAIN
+  buildProject({
+    id: '23-003', name: 'Westview High School New Construction', customer: 'Hensel Phelps',
+    division: 'Commercial', segment: 'K-12 Education', year: 2023, origValue: 2100000, changeOrderDelta: 140000,
+    origCostBreakdown: { labor: 546000, laborHours: 7280, materials: 336000, equipment: 441000, subs: 315000, other: 84000 },
+    revCostBreakdown: { labor: 582000, laborHours: 7760, materials: 358000, equipment: 462000, subs: 336000, other: 89600 },
+    finalCostBreakdown: { labor: 565000, laborHours: 7530, materials: 348000, equipment: 455000, subs: 328000, other: 86000 },
+  }),
+
+  // 20. Army base - FADE (security delays, Davis-Bacon labor rates)
+  buildProject({
+    id: '23-004', name: 'Army Base Barracks MEP Systems', customer: 'Clark Construction',
+    division: 'Commercial', segment: 'Federal Government', year: 2023, origValue: 4500000, changeOrderDelta: 350000,
+    origCostBreakdown: { labor: 1170000, laborHours: 15600, materials: 720000, equipment: 990000, subs: 675000, other: 135000 },
+    revCostBreakdown: { labor: 1265000, laborHours: 16870, materials: 776000, equipment: 1050000, subs: 728000, other: 145800 },
+    finalCostBreakdown: { labor: 1480000, laborHours: 19500, materials: 842000, equipment: 1095000, subs: 762000, other: 165000 },
+  }),
+
+  // 21. Senior living phase 2 - GAIN (repeat project type)
+  buildProject({
+    id: '23-005', name: 'Sunrise Senior Community Phase 2', customer: 'Swinerton',
+    division: 'Residential', segment: 'Senior Living', year: 2023, origValue: 2200000, changeOrderDelta: 85000,
+    origCostBreakdown: { labor: 572000, laborHours: 7630, materials: 352000, equipment: 462000, subs: 308000, other: 88000 },
+    revCostBreakdown: { labor: 594000, laborHours: 7920, materials: 365000, equipment: 478000, subs: 319400, other: 91300 },
+    finalCostBreakdown: { labor: 578000, laborHours: 7710, materials: 355000, equipment: 468000, subs: 312000, other: 88500 },
+  }),
+
+  // 22. Genomics lab - FADE (spec changes mid-project)
+  buildProject({
+    id: '23-006', name: 'Genomics Institute Lab MEP', customer: 'McCarthy Building Companies',
+    division: 'Healthcare', segment: 'Life Sciences', year: 2023, origValue: 3800000, changeOrderDelta: 410000,
+    origCostBreakdown: { labor: 988000, laborHours: 13175, materials: 608000, equipment: 836000, subs: 570000, other: 114000 },
+    revCostBreakdown: { labor: 1095000, laborHours: 14600, materials: 672000, equipment: 910000, subs: 632000, other: 126000 },
+    finalCostBreakdown: { labor: 1290000, laborHours: 17000, materials: 738000, equipment: 955000, subs: 668000, other: 145000 },
+  }),
+
+  // 23. Office tower build-out - GAIN
+  buildProject({
+    id: '23-007', name: 'One Harbor Tower Office Build-Out', customer: 'Hines',
+    division: 'Commercial', segment: 'Office / Commercial', year: 2023, origValue: 1100000, changeOrderDelta: 65000,
+    origCostBreakdown: { labor: 286000, laborHours: 3815, materials: 165000, equipment: 231000, subs: 154000, other: 44000 },
+    revCostBreakdown: { labor: 303000, laborHours: 4040, materials: 175000, equipment: 242000, subs: 163000, other: 46600 },
+    finalCostBreakdown: { labor: 292000, laborHours: 3895, materials: 169000, equipment: 238000, subs: 158000, other: 44500 },
+  }),
+
+  // 24. Multifamily - GAIN (good prefab strategy)
+  buildProject({
+    id: '23-008', name: 'Riverside Lofts HVAC & Plumbing', customer: 'Greystar Development',
+    division: 'Residential', segment: 'Multifamily', year: 2023, origValue: 1600000, changeOrderDelta: 90000,
+    origCostBreakdown: { labor: 416000, laborHours: 5550, materials: 256000, equipment: 336000, subs: 224000, other: 64000 },
+    revCostBreakdown: { labor: 440000, laborHours: 5870, materials: 270000, equipment: 352000, subs: 236000, other: 67600 },
+    finalCostBreakdown: { labor: 428000, laborHours: 5710, materials: 262000, equipment: 345000, subs: 230000, other: 65000 },
+  }),
+
+  // 25. Higher ed dormitory - GAIN
+  buildProject({
+    id: '23-009', name: 'State University Dormitory MEP', customer: 'Holder Construction',
+    division: 'Commercial', segment: 'Higher Education', year: 2023, origValue: 2900000, changeOrderDelta: 175000,
+    origCostBreakdown: { labor: 754000, laborHours: 10055, materials: 464000, equipment: 609000, subs: 435000, other: 116000 },
+    revCostBreakdown: { labor: 800000, laborHours: 10670, materials: 492000, equipment: 640000, subs: 461000, other: 123000 },
+    finalCostBreakdown: { labor: 782000, laborHours: 10430, materials: 480000, equipment: 628000, subs: 450000, other: 119000 },
+  }),
+
+  // 26. Hospital surgical wing - GAIN (Whiting-Turner excellent project management)
+  buildProject({
+    id: '23-010', name: 'Mercy Hospital Surgical Wing MEP', customer: 'Whiting-Turner',
+    division: 'Healthcare', segment: 'Healthcare', year: 2023, origValue: 4100000, changeOrderDelta: 310000,
+    origCostBreakdown: { labor: 1066000, laborHours: 14215, materials: 656000, equipment: 902000, subs: 615000, other: 123000 },
+    revCostBreakdown: { labor: 1148000, laborHours: 15310, materials: 705000, equipment: 960000, subs: 661500, other: 132300 },
+    finalCostBreakdown: { labor: 1120000, laborHours: 14935, materials: 688000, equipment: 945000, subs: 648000, other: 128000 },
+  }),
+
+  // 27. County jail - FADE (security requirements, scheduling constraints)
+  buildProject({
+    id: '23-011', name: 'County Detention Center HVAC', customer: 'Skanska USA',
+    division: 'Commercial', segment: 'Municipal Government', year: 2023, origValue: 1900000, changeOrderDelta: 120000,
+    origCostBreakdown: { labor: 494000, laborHours: 6590, materials: 304000, equipment: 418000, subs: 266000, other: 76000 },
+    revCostBreakdown: { labor: 525000, laborHours: 7000, materials: 323000, equipment: 440000, subs: 282000, other: 80800 },
+    finalCostBreakdown: { labor: 610000, laborHours: 8050, materials: 352000, equipment: 462000, subs: 302000, other: 88500 },
+  }),
+
+  // 28. Boutique hotel - GAIN (small, controlled scope)
+  buildProject({
+    id: '23-012', name: 'Boutique Hotel Mechanical Systems', customer: 'Suffolk Construction',
+    division: 'Commercial', segment: 'Hospitality', year: 2023, origValue: 720000, changeOrderDelta: 38000,
+    origCostBreakdown: { labor: 187200, laborHours: 2500, materials: 108000, equipment: 158400, subs: 86400, other: 28800 },
+    revCostBreakdown: { labor: 197000, laborHours: 2630, materials: 113500, equipment: 165000, subs: 90800, other: 30300 },
+    finalCostBreakdown: { labor: 190000, laborHours: 2540, materials: 110000, equipment: 161000, subs: 88000, other: 29200 },
+  }),
+
+  // 29. Small office RTU replacement - GAIN
+  buildProject({
+    id: '23-013', name: 'Tech Park Rooftop Unit Replacement', customer: 'Lincoln Property Company',
+    division: 'Commercial', segment: 'Office / Commercial', year: 2023, origValue: 380000, changeOrderDelta: 0,
+    origCostBreakdown: { labor: 60800, laborHours: 810, materials: 26600, equipment: 167200, subs: 38000, other: 15200 },
+    revCostBreakdown: { labor: 60800, laborHours: 810, materials: 26600, equipment: 167200, subs: 38000, other: 15200 },
+    finalCostBreakdown: { labor: 57000, laborHours: 760, materials: 25000, equipment: 167200, subs: 36500, other: 14500 },
+  }),
+
+  // 30. Manufacturing plant piping - GAIN
+  buildProject({
+    id: '23-014', name: 'Manufacturing Plant Process Piping', customer: 'Rudolph & Sletten',
+    division: 'Commercial', segment: 'Industrial', year: 2023, origValue: 1300000, changeOrderDelta: 75000,
+    origCostBreakdown: { labor: 338000, laborHours: 4510, materials: 221000, equipment: 273000, subs: 182000, other: 52000 },
+    revCostBreakdown: { labor: 357000, laborHours: 4760, materials: 233000, equipment: 287000, subs: 192000, other: 55000 },
+    finalCostBreakdown: { labor: 348000, laborHours: 4640, materials: 227000, equipment: 280000, subs: 188000, other: 53000 },
+  }),
+
+  // 31. Children's hospital - FADE (infection control, phasing requirements)
+  buildProject({
+    id: '23-015', name: "Children's Hospital New Wing MEP", customer: 'Webcor Builders',
+    division: 'Healthcare', segment: 'Healthcare', year: 2023, origValue: 2500000, changeOrderDelta: 280000,
+    origCostBreakdown: { labor: 650000, laborHours: 8670, materials: 400000, equipment: 550000, subs: 375000, other: 75000 },
+    revCostBreakdown: { labor: 724000, laborHours: 9655, materials: 444800, equipment: 596000, subs: 417200, other: 83440 },
+    finalCostBreakdown: { labor: 852000, laborHours: 11200, materials: 495000, equipment: 632000, subs: 448000, other: 96000 },
+  }),
+
+  // 32. Retail outlet - GAIN (after-hours but better managed than 2022)
+  buildProject({
+    id: '23-016', name: 'Outlet Mall Anchor Store Renovation', customer: 'Turner Construction',
+    division: 'Commercial', segment: 'Retail', year: 2023, origValue: 520000, changeOrderDelta: 30000,
+    origCostBreakdown: { labor: 135200, laborHours: 1805, materials: 78000, equipment: 109200, subs: 62400, other: 20800 },
+    revCostBreakdown: { labor: 143000, laborHours: 1905, materials: 82500, equipment: 114000, subs: 66000, other: 22000 },
+    finalCostBreakdown: { labor: 138000, laborHours: 1840, materials: 79500, equipment: 111000, subs: 64000, other: 21000 },
+  }),
+
+  // ============================================================
+  // 2024 PROJECTS (16 projects)
+  // ============================================================
+
+  // 33. Massive data center - BIG GAIN (institutional knowledge paying off)
+  buildProject({
+    id: '24-001', name: 'CloudFirst Data Center Campus', customer: 'DPR Construction',
+    division: 'Commercial', segment: 'Data Center', year: 2024, origValue: 11500000, changeOrderDelta: 850000,
+    origCostBreakdown: { labor: 2990000, laborHours: 37375, materials: 1955000, equipment: 2875000, subs: 1380000, other: 345000 },
+    revCostBreakdown: { labor: 3220000, laborHours: 40250, materials: 2100000, equipment: 3050000, subs: 1480000, other: 370000 },
+    finalCostBreakdown: { labor: 3080000, laborHours: 38500, materials: 2020000, equipment: 2980000, subs: 1430000, other: 352000 },
+  }),
+
+  // 34. University hospital tower - FADE (largest project, biggest fade)
+  buildProject({
+    id: '24-002', name: 'University Hospital Patient Tower MEP', customer: 'Turner Construction',
+    division: 'Healthcare', segment: 'Healthcare', year: 2024, origValue: 8200000, changeOrderDelta: 1100000,
+    origCostBreakdown: { labor: 2132000, laborHours: 28430, materials: 1312000, equipment: 1804000, subs: 1230000, other: 246000 },
+    revCostBreakdown: { labor: 2420000, laborHours: 32270, materials: 1490000, equipment: 1990000, subs: 1395000, other: 279000 },
+    finalCostBreakdown: { labor: 3050000, laborHours: 40100, materials: 1680000, equipment: 2120000, subs: 1490000, other: 332000 },
+  }),
+
+  // 35. K-12 district bundle - GAIN (volume efficiency)
+  buildProject({
+    id: '24-003', name: 'Elementary School District HVAC Bundle', customer: 'Hensel Phelps',
+    division: 'Commercial', segment: 'K-12 Education', year: 2024, origValue: 3400000, changeOrderDelta: 180000,
+    origCostBreakdown: { labor: 884000, laborHours: 11790, materials: 544000, equipment: 714000, subs: 510000, other: 136000 },
+    revCostBreakdown: { labor: 931000, laborHours: 12415, materials: 572000, equipment: 746000, subs: 536000, other: 143000 },
+    finalCostBreakdown: { labor: 905000, laborHours: 12070, materials: 555000, equipment: 730000, subs: 522000, other: 138000 },
+  }),
+
+  // 36. VA medical center - FADE (government complexity)
+  buildProject({
+    id: '24-004', name: 'VA Medical Center MEP Renovation', customer: 'Clark Construction',
+    division: 'Commercial', segment: 'Federal Government', year: 2024, origValue: 5800000, changeOrderDelta: 480000,
+    origCostBreakdown: { labor: 1508000, laborHours: 20110, materials: 928000, equipment: 1218000, subs: 870000, other: 174000 },
+    revCostBreakdown: { labor: 1635000, laborHours: 21800, materials: 1004000, equipment: 1310000, subs: 942000, other: 188400 },
+    finalCostBreakdown: { labor: 1920000, laborHours: 25300, materials: 1098000, equipment: 1378000, subs: 998000, other: 215000 },
+  }),
+
+  // 37. Pharma campus - GAIN (improved from 2022 life sciences fade)
+  buildProject({
+    id: '24-005', name: 'Pharma Campus Clean Utilities', customer: 'McCarthy Building Companies',
+    division: 'Healthcare', segment: 'Life Sciences', year: 2024, origValue: 4600000, changeOrderDelta: 320000,
+    origCostBreakdown: { labor: 1196000, laborHours: 15950, materials: 736000, equipment: 1012000, subs: 690000, other: 138000 },
+    revCostBreakdown: { labor: 1280000, laborHours: 17070, materials: 787000, equipment: 1070000, subs: 738000, other: 147600 },
+    finalCostBreakdown: { labor: 1250000, laborHours: 16670, materials: 770000, equipment: 1055000, subs: 725000, other: 143000 },
+  }),
+
+  // 38. Luxury senior residence - GAIN
+  buildProject({
+    id: '24-006', name: 'Luxury Senior Residence MEP', customer: 'Swinerton',
+    division: 'Residential', segment: 'Senior Living', year: 2024, origValue: 2500000, changeOrderDelta: 130000,
+    origCostBreakdown: { labor: 650000, laborHours: 8670, materials: 400000, equipment: 525000, subs: 350000, other: 100000 },
+    revCostBreakdown: { labor: 684000, laborHours: 9120, materials: 421000, equipment: 548000, subs: 368000, other: 105200 },
+    finalCostBreakdown: { labor: 665000, laborHours: 8870, materials: 410000, equipment: 538000, subs: 358000, other: 102000 },
+  }),
+
+  // 39. Financial district TI - GAIN
+  buildProject({
+    id: '24-007', name: '500 Financial District Tenant Improvement', customer: 'Hines',
+    division: 'Commercial', segment: 'Office / Commercial', year: 2024, origValue: 890000, changeOrderDelta: 55000,
+    origCostBreakdown: { labor: 231400, laborHours: 3085, materials: 133500, equipment: 178000, subs: 106800, other: 35600 },
+    revCostBreakdown: { labor: 245500, laborHours: 3275, materials: 141700, equipment: 188000, subs: 113300, other: 37800 },
+    finalCostBreakdown: { labor: 237000, laborHours: 3165, materials: 136500, equipment: 184000, subs: 109500, other: 36200 },
+  }),
+
+  // 40. Mixed-use multifamily - FADE (rare fade for residential)
+  buildProject({
+    id: '24-008', name: 'Urban Gardens Mixed-Use MEP', customer: 'Greystar Development',
+    division: 'Residential', segment: 'Multifamily', year: 2024, origValue: 3200000, changeOrderDelta: 210000,
+    origCostBreakdown: { labor: 832000, laborHours: 11095, materials: 512000, equipment: 672000, subs: 448000, other: 128000 },
+    revCostBreakdown: { labor: 886000, laborHours: 11815, materials: 545000, equipment: 712000, subs: 477000, other: 136200 },
+    finalCostBreakdown: { labor: 1010000, laborHours: 13400, materials: 592000, equipment: 745000, subs: 510000, other: 148000 },
+  }),
+
+  // 41. Community college - GAIN
+  buildProject({
+    id: '24-009', name: 'Community College HVAC Renovation', customer: 'Holder Construction',
+    division: 'Commercial', segment: 'Higher Education', year: 2024, origValue: 1800000, changeOrderDelta: 95000,
+    origCostBreakdown: { labor: 468000, laborHours: 6240, materials: 288000, equipment: 378000, subs: 270000, other: 72000 },
+    revCostBreakdown: { labor: 492500, laborHours: 6570, materials: 303000, equipment: 397000, subs: 284000, other: 75800 },
+    finalCostBreakdown: { labor: 480000, laborHours: 6400, materials: 295000, equipment: 388000, subs: 276000, other: 73200 },
+  }),
+
+  // 42. Hospital retrofit - GAIN (Whiting-Turner consistently good)
+  buildProject({
+    id: '24-010', name: "St. Mary's Hospital Chiller Retrofit", customer: 'Whiting-Turner',
+    division: 'Healthcare', segment: 'Healthcare', year: 2024, origValue: 3500000, changeOrderDelta: 190000,
+    origCostBreakdown: { labor: 910000, laborHours: 12135, materials: 560000, equipment: 770000, subs: 525000, other: 105000 },
+    revCostBreakdown: { labor: 960000, laborHours: 12800, materials: 590000, equipment: 805000, subs: 553500, other: 110700 },
+    finalCostBreakdown: { labor: 935000, laborHours: 12470, materials: 575000, equipment: 795000, subs: 540000, other: 107000 },
+  }),
+
+  // 43. Municipal rec center - GAIN
+  buildProject({
+    id: '24-011', name: 'Municipal Recreation Center MEP', customer: 'Skanska USA',
+    division: 'Commercial', segment: 'Municipal Government', year: 2024, origValue: 1100000, changeOrderDelta: 60000,
+    origCostBreakdown: { labor: 286000, laborHours: 3815, materials: 176000, equipment: 231000, subs: 154000, other: 44000 },
+    revCostBreakdown: { labor: 301500, laborHours: 4020, materials: 185500, equipment: 242000, subs: 162200, other: 46300 },
+    finalCostBreakdown: { labor: 293000, laborHours: 3905, materials: 180000, equipment: 237000, subs: 157000, other: 44800 },
+  }),
+
+  // 44. Convention center expansion - GAIN (large but well-managed)
+  buildProject({
+    id: '24-012', name: 'Convention Center Expansion MEP', customer: 'Suffolk Construction',
+    division: 'Commercial', segment: 'Hospitality', year: 2024, origValue: 2800000, changeOrderDelta: 195000,
+    origCostBreakdown: { labor: 728000, laborHours: 9710, materials: 448000, equipment: 588000, subs: 420000, other: 112000 },
+    revCostBreakdown: { labor: 778500, laborHours: 10380, materials: 479000, equipment: 624000, subs: 449000, other: 119700 },
+    finalCostBreakdown: { labor: 758000, laborHours: 10110, materials: 465000, equipment: 612000, subs: 438000, other: 116000 },
+  }),
+
+  // 45. Food processing - FADE (contamination protocols, washdown areas)
+  buildProject({
+    id: '24-013', name: 'Food Processing Facility HVAC & Piping', customer: 'Rudolph & Sletten',
+    division: 'Commercial', segment: 'Industrial', year: 2024, origValue: 2100000, changeOrderDelta: 145000,
+    origCostBreakdown: { labor: 546000, laborHours: 7280, materials: 357000, equipment: 441000, subs: 294000, other: 84000 },
+    revCostBreakdown: { labor: 584000, laborHours: 7790, materials: 381000, equipment: 468000, subs: 314000, other: 89800 },
+    finalCostBreakdown: { labor: 672000, laborHours: 8880, materials: 418000, equipment: 498000, subs: 340000, other: 102000 },
+  }),
+
+  // 46. Suburban office park - GAIN
+  buildProject({
+    id: '24-014', name: 'Suburban Office Park HVAC Upgrade', customer: 'Lincoln Property Company',
+    division: 'Commercial', segment: 'Office / Commercial', year: 2024, origValue: 560000, changeOrderDelta: 25000,
+    origCostBreakdown: { labor: 145600, laborHours: 1940, materials: 84000, equipment: 117600, subs: 67200, other: 22400 },
+    revCostBreakdown: { labor: 152000, laborHours: 2030, materials: 87800, equipment: 122500, subs: 70200, other: 23400 },
+    finalCostBreakdown: { labor: 147000, laborHours: 1960, materials: 85000, equipment: 119500, subs: 68000, other: 22500 },
+  }),
+
+  // 47. Dialysis center - FADE (medical gas complexity)
+  buildProject({
+    id: '24-015', name: 'Dialysis Center MEP Build-Out', customer: 'Webcor Builders',
+    division: 'Healthcare', segment: 'Healthcare', year: 2024, origValue: 670000, changeOrderDelta: 48000,
+    origCostBreakdown: { labor: 174200, laborHours: 2325, materials: 100500, equipment: 147400, subs: 80400, other: 26800 },
+    revCostBreakdown: { labor: 186800, laborHours: 2490, materials: 107700, equipment: 157000, subs: 86200, other: 28700 },
+    finalCostBreakdown: { labor: 218000, laborHours: 2880, materials: 118000, equipment: 164000, subs: 92000, other: 31500 },
+  }),
+
+  // 48. Small retail build-out - GAIN (improved from prior year)
+  buildProject({
+    id: '24-016', name: 'Big Box Store MEP Build-Out', customer: 'Turner Construction',
+    division: 'Commercial', segment: 'Retail', year: 2024, origValue: 180000, changeOrderDelta: 12000,
+    origCostBreakdown: { labor: 46800, laborHours: 625, materials: 27000, equipment: 37800, subs: 21600, other: 7200 },
+    revCostBreakdown: { labor: 49900, laborHours: 665, materials: 28800, equipment: 39900, subs: 23000, other: 7680 },
+    finalCostBreakdown: { labor: 47500, laborHours: 635, materials: 27500, equipment: 38500, subs: 22000, other: 7300 },
+  }),
 ];

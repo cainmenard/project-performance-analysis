@@ -4,6 +4,7 @@ import { calculateSegmentMetrics, calculateYearMetrics } from '@/lib/calculation
 import { formatCurrency, formatPercent } from '@/lib/formatters';
 import { cn } from '@/lib/cn';
 import { Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend, Line, ComposedChart } from 'recharts';
+import { Target, ArrowRight } from 'lucide-react';
 
 function YearOverYearChart({ projects }: { projects: import('@/lib/types').ProjectRecord[] }) {
   const yearMetrics = calculateYearMetrics(projects);
@@ -109,6 +110,39 @@ function SegmentTable({ projects }: { projects: import('@/lib/types').ProjectRec
   );
 }
 
+function SegmentStrategyCallout({ projects }: { projects: import('@/lib/types').ProjectRecord[] }) {
+  const segments = calculateSegmentMetrics(projects);
+  if (segments.length < 2) return null;
+
+  const best = segments.reduce((a, b) => (a.averageMargin > b.averageMargin ? a : b));
+  const worst = segments.reduce((a, b) => (a.averageMargin < b.averageMargin ? a : b));
+  const spread = best.averageMargin - worst.averageMargin;
+
+  return (
+    <div className="rounded-xl border border-primary/20 bg-primary/5 p-5">
+      <div className="flex items-start gap-3">
+        <div className="shrink-0 rounded-lg bg-primary/10 p-2 mt-0.5">
+          <Target className="h-4 w-4 text-primary" />
+        </div>
+        <div>
+          <h3 className="text-sm font-semibold text-foreground">The Strategic Question Your Data Answers</h3>
+          <p className="mt-1 text-xs text-muted-foreground leading-relaxed">
+            Not all revenue is created equal. Your <span className="font-medium text-foreground">{best.segment}</span> work
+            delivers {formatPercent(best.averageMargin)} margins while <span className="font-medium text-foreground">{worst.segment}</span> runs
+            at {formatPercent(worst.averageMargin)} — a {formatPercent(spread)} spread. Every dollar of revenue you shift from
+            low-margin to high-margin segments drops {formatPercent(spread)} more to the bottom line.
+            This is the data that should drive your pursuit strategy, staffing, and go/no-go decisions.
+          </p>
+          <div className="mt-2 inline-flex items-center gap-1.5 rounded-md bg-gain/10 px-2.5 py-1 text-xs font-medium text-gain">
+            <ArrowRight className="h-3 w-3" />
+            Shifting 20% of {worst.segment} revenue to {best.segment} = {formatCurrency(worst.totalRevenue * 0.2 * spread)} in added profit
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export function MarketSegments() {
   const { filteredProjects } = useProjectData();
   const segments = calculateSegmentMetrics(filteredProjects);
@@ -121,6 +155,8 @@ export function MarketSegments() {
           Performance across {segments.length} market segments — use these insights to drive your go-to-market strategy
         </p>
       </div>
+
+      <SegmentStrategyCallout projects={filteredProjects} />
 
       <div className="space-y-2">
         <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">Time Analysis</h3>

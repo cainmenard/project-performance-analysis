@@ -13,9 +13,12 @@ export function Header() {
       <div className="flex h-14 items-center justify-between px-4 lg:px-6">
         <div className="flex items-center gap-3">
           <BarChart3 className="h-6 w-6 text-primary" />
-          <h1 className="text-lg font-semibold tracking-tight">
-            Project Performance Analysis
-          </h1>
+          <div>
+            <h1 className="text-lg font-semibold tracking-tight leading-tight">
+              Project Performance Intelligence
+            </h1>
+            <p className="text-[10px] text-muted-foreground tracking-wide">by Automized</p>
+          </div>
         </div>
 
         <div className="flex items-center gap-3">

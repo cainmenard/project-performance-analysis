@@ -6,7 +6,7 @@ import { formatCurrency, formatPercent } from '@/lib/formatters';
 import { cn } from '@/lib/cn';
 import { ArrowUpDown } from 'lucide-react';
 
-type SortField = 'projectName' | 'finalContractValue' | 'finalGrossProfitMargin' | 'overallGainFade' | 'marketSegment' | 'customerName' | 'yearCompleted' | 'gainFadeOrgFinalDollars';
+type SortField = 'projectName' | 'finalContractValue' | 'finalGrossProfitMargin' | 'overallGainFade' | 'marketSegment' | 'customerName' | 'yearCompleted' | 'gainFadeOrgFinalDollars' | 'projectManager' | 'estimator';
 
 export function ProjectPortfolio() {
   const { filteredProjects } = useProjectData();
@@ -25,7 +25,7 @@ export function ProjectPortfolio() {
 
   const sorted = [...filteredProjects].sort((a, b) => {
     const mul = sortAsc ? 1 : -1;
-    if (sortField === 'projectName' || sortField === 'overallGainFade' || sortField === 'marketSegment' || sortField === 'customerName') {
+    if (sortField === 'projectName' || sortField === 'overallGainFade' || sortField === 'marketSegment' || sortField === 'customerName' || sortField === 'projectManager' || sortField === 'estimator') {
       return mul * ((a[sortField] as string) || '').localeCompare((b[sortField] as string) || '');
     }
     return mul * ((a[sortField] as number) - (b[sortField] as number));
@@ -52,6 +52,8 @@ export function ProjectPortfolio() {
                   ['projectName', 'Project'],
                   ['customerName', 'Customer'],
                   ['marketSegment', 'Segment'],
+                  ['projectManager', 'PM'],
+                  ['estimator', 'Estimator'],
                   ['yearCompleted', 'Year'],
                   ['finalContractValue', 'Contract Value'],
                   ['finalGrossProfitMargin', 'Margin'],
@@ -84,6 +86,8 @@ export function ProjectPortfolio() {
                   </td>
                   <td className="px-4 py-3 text-xs text-muted-foreground">{p.customerName}</td>
                   <td className="px-4 py-3 text-xs text-muted-foreground">{p.marketSegment}</td>
+                  <td className="px-4 py-3 text-xs text-muted-foreground whitespace-nowrap">{p.projectManager}</td>
+                  <td className="px-4 py-3 text-xs text-muted-foreground whitespace-nowrap">{p.estimator}</td>
                   <td className="px-4 py-3 text-xs text-muted-foreground">{p.yearCompleted}</td>
                   <td className="px-4 py-3 font-medium">{formatCurrency(p.finalContractValue)}</td>
                   <td className="px-4 py-3">{formatPercent(p.finalGrossProfitMargin)}</td>

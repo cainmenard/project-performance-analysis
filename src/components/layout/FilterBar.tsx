@@ -75,9 +75,11 @@ export function FilterBar() {
     state.filters.marketSegments.length > 0 ||
     state.filters.years.length > 0 ||
     state.filters.gainFade.length > 0 ||
-    state.filters.customers.length > 0;
+    state.filters.customers.length > 0 ||
+    state.filters.projectManagers.length > 0 ||
+    state.filters.estimators.length > 0;
 
-  const toggleFilter = (key: 'divisions' | 'marketSegments' | 'customers', value: string) => {
+  const toggleFilter = (key: 'divisions' | 'marketSegments' | 'customers' | 'projectManagers' | 'estimators', value: string) => {
     const current = state.filters[key] as string[];
     const next = current.includes(value) ? current.filter((v) => v !== value) : [...current, value];
     setFilters({ [key]: next });
@@ -96,7 +98,7 @@ export function FilterBar() {
   };
 
   const clearAll = () => {
-    setFilters({ divisions: [], marketSegments: [], years: [], gainFade: [], customers: [] });
+    setFilters({ divisions: [], marketSegments: [], years: [], gainFade: [], customers: [], projectManagers: [], estimators: [] });
   };
 
   return (
@@ -129,6 +131,20 @@ export function FilterBar() {
         options={summary.customers}
         selected={state.filters.customers}
         onToggle={(v) => toggleFilter('customers', v)}
+      />
+
+      <FilterDropdown
+        label="PM"
+        options={summary.projectManagers}
+        selected={state.filters.projectManagers}
+        onToggle={(v) => toggleFilter('projectManagers', v)}
+      />
+
+      <FilterDropdown
+        label="Estimator"
+        options={summary.estimators}
+        selected={state.filters.estimators}
+        onToggle={(v) => toggleFilter('estimators', v)}
       />
 
       <div className="flex gap-1">

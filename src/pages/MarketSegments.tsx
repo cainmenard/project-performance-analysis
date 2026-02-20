@@ -1,10 +1,10 @@
 import { useProjectData } from '@/hooks/useProjectData';
 import { SegmentRevenueChart, SegmentMarginChart, SegmentRadarChart } from '@/components/charts/MarketSegmentChart';
-import { calculateSegmentMetrics, calculateYearMetrics } from '@/lib/calculations';
+import { calculateSegmentMetrics, calculateYearMetrics, analyzePortfolioCostDrivers } from '@/lib/calculations';
 import { formatCurrency, formatPercent } from '@/lib/formatters';
 import { cn } from '@/lib/cn';
 import { Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend, Line, ComposedChart } from 'recharts';
-import { Target, ArrowRight } from 'lucide-react';
+import { Target, ArrowRight, AlertTriangle } from 'lucide-react';
 
 function YearOverYearChart({ projects }: { projects: import('@/lib/types').ProjectRecord[] }) {
   const yearMetrics = calculateYearMetrics(projects);
@@ -110,6 +110,56 @@ function SegmentTable({ projects }: { projects: import('@/lib/types').ProjectRec
   );
 }
 
+function SegmentCostDriverInsights({ projects }: { projects: import('@/lib/types').ProjectRecord[] }) {
+  const analysis = analyzePortfolioCostDrivers(projects);
+  const patterns = analysis.segmentCostPatterns.filter((s) => s.fadeCount >= 2);
+
+  if (patterns.length === 0) return null;
+
+  return (
+    <div className="rounded-xl border border-border bg-card p-5 shadow-sm">
+      <div className="flex items-center gap-2 mb-1">
+        <AlertTriangle className="h-4 w-4 text-fade" />
+        <h3 className="text-sm font-semibold text-foreground">Segment-Level Cost Driver Patterns</h3>
+      </div>
+      <p className="text-xs text-muted-foreground mb-4">
+        Which cost categories are driving fades in each segment — reveals segment-specific estimating gaps
+      </p>
+      <div className="space-y-3">
+        {patterns.map((scp) => {
+          const segTotal = projects.filter((p) => p.marketSegment === scp.segment).length;
+          const fadeRate = segTotal > 0 ? scp.fadeCount / segTotal : 0;
+          return (
+            <div key={scp.segment} className="rounded-lg border border-border bg-muted/30 p-3">
+              <div className="flex items-center justify-between mb-1">
+                <span className="text-sm font-medium">{scp.segment}</span>
+                <span className="text-xs text-fade font-medium">{scp.fadeCount} of {segTotal} faded ({formatPercent(fadeRate)})</span>
+              </div>
+              <div className="flex items-center gap-3 text-xs text-muted-foreground">
+                <span>
+                  Primary driver: <span className="font-medium text-foreground">{scp.primaryDriverCategory}</span> ({(scp.primaryDriverPct * 100).toFixed(0)}% of fades)
+                </span>
+                <span>·</span>
+                <span>Fade impact: <span className="font-medium text-fade">{formatCurrency(scp.fadeDollars)}</span></span>
+              </div>
+              {scp.primaryDriverCategory === 'Labor' && scp.avgLaborHoursVariancePct > 0 && (
+                <p className="mt-1 text-[10px] text-muted-foreground">
+                  Avg labor hours variance: +{formatPercent(scp.avgLaborHoursVariancePct)} — suggests scope complexity is underestimated for {scp.segment.toLowerCase()} projects
+                </p>
+              )}
+              {scp.primaryDriverCategory === 'Materials' && scp.avgMaterialsVariancePct > 0 && (
+                <p className="mt-1 text-[10px] text-muted-foreground">
+                  Avg materials variance: +{formatPercent(scp.avgMaterialsVariancePct)} — may indicate price escalation or incomplete scope definition in takeoffs
+                </p>
+              )}
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
 function SegmentStrategyCallout({ projects }: { projects: import('@/lib/types').ProjectRecord[] }) {
   const segments = calculateSegmentMetrics(projects);
   if (segments.length < 2) return null;
@@ -170,6 +220,11 @@ export function MarketSegments() {
           <SegmentRevenueChart projects={filteredProjects} />
           <SegmentMarginChart projects={filteredProjects} />
         </div>
+      </div>
+
+      <div className="space-y-2">
+        <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">Cost Driver Patterns by Segment</h3>
+        <SegmentCostDriverInsights projects={filteredProjects} />
       </div>
 
       <div className="space-y-2">

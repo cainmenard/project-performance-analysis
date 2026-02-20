@@ -6,6 +6,8 @@ export interface ProjectRecord {
   projectNumber: string;
   yearCompleted: number;
   marketSegment: string;
+  projectManager: string;
+  estimator: string;
 
   // Contract Values
   originalContractValue: number;
@@ -69,6 +71,8 @@ export interface PortfolioSummary {
   divisions: string[];
   years: number[];
   customers: string[];
+  projectManagers: string[];
+  estimators: string[];
 }
 
 export interface FilterState {
@@ -77,4 +81,6 @@ export interface FilterState {
   years: number[];
   gainFade: ('Gain' | 'Fade')[];
   customers: string[];
+  projectManagers: string[];
+  estimators: string[];
 }

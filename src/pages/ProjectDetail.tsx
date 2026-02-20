@@ -1,8 +1,9 @@
 import { useParams, useNavigate } from 'react-router-dom';
 import { useProjectData } from '@/hooks/useProjectData';
 import { formatCurrencyFull, formatPercent, formatNumber } from '@/lib/formatters';
+import { analyzeProjectCostDrivers } from '@/lib/calculations';
 import { cn } from '@/lib/cn';
-import { ArrowLeft } from 'lucide-react';
+import { ArrowLeft, User, Calculator, AlertTriangle, TrendingUp } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
 
 function MetricCard({ label, value, sub }: { label: string; value: string; sub?: string }) {
@@ -33,6 +34,9 @@ export function ProjectDetail() {
     );
   }
 
+  const costDrivers = analyzeProjectCostDrivers(project);
+  const isFade = project.overallGainFade === 'Fade';
+
   const costData = [
     { category: 'Labor', original: project.originalEstimatedLabor, revised: project.revisedEstimatedLabor, final: project.finalLabor },
     { category: 'Materials', original: project.originalEstimatedMaterials, revised: project.revisedEstimatedMaterials, final: project.finalMaterials },
@@ -62,6 +66,10 @@ export function ProjectDetail() {
             <p className="text-sm text-muted-foreground">
               {project.customerName} &middot; #{project.projectNumber} &middot; {project.division} &middot; {project.marketSegment} &middot; {project.yearCompleted}
             </p>
+            <div className="mt-1 flex items-center gap-4 text-xs text-muted-foreground">
+              <span className="inline-flex items-center gap-1"><User className="h-3 w-3" /> PM: {project.projectManager}</span>
+              <span className="inline-flex items-center gap-1"><Calculator className="h-3 w-3" /> Estimator: {project.estimator}</span>
+            </div>
           </div>
           <span className={cn(
             'rounded-full px-3 py-1 text-sm font-medium',
@@ -69,6 +77,40 @@ export function ProjectDetail() {
           )}>
             {project.overallGainFade}
           </span>
+        </div>
+      </div>
+
+      {/* Cost Driver Diagnosis */}
+      <div className={cn(
+        'rounded-xl border p-4 flex items-start gap-3',
+        isFade ? 'border-fade/20 bg-fade/5' : 'border-gain/20 bg-gain/5'
+      )}>
+        {isFade ? (
+          <AlertTriangle className="h-5 w-5 text-fade shrink-0 mt-0.5" />
+        ) : (
+          <TrendingUp className="h-5 w-5 text-gain shrink-0 mt-0.5" />
+        )}
+        <div>
+          <p className="text-sm font-semibold text-foreground">
+            {isFade ? 'Why This Project Faded' : 'Why This Project Gained'}
+          </p>
+          <p className="mt-1 text-xs text-muted-foreground leading-relaxed">{costDrivers.diagnosis}</p>
+          <div className="mt-2 flex flex-wrap gap-2">
+            {costDrivers.drivers
+              .filter((d) => Math.abs(d.varianceDollars) > 0)
+              .slice(0, 3)
+              .map((d) => (
+                <span
+                  key={d.category}
+                  className={cn(
+                    'inline-flex rounded-full px-2 py-0.5 text-[10px] font-medium',
+                    d.varianceDollars > 0 ? 'bg-fade/10 text-fade' : 'bg-gain/10 text-gain'
+                  )}
+                >
+                  {d.category}: {d.varianceDollars > 0 ? '+' : ''}{formatCurrencyFull(d.varianceDollars)} ({(d.shareOfTotalVariance * 100).toFixed(0)}%)
+                </span>
+              ))}
+          </div>
         </div>
       </div>
 
@@ -111,10 +153,10 @@ export function ProjectDetail() {
         </div>
       </div>
 
-      {/* Cost Breakdown */}
+      {/* Cost Breakdown with Driver Highlighting */}
       <div className="rounded-xl border border-border bg-card p-5 shadow-sm">
         <h3 className="text-sm font-semibold text-foreground">Cost Breakdown by Category</h3>
-        <p className="mb-4 text-xs text-muted-foreground">Original vs Revised vs Final</p>
+        <p className="mb-4 text-xs text-muted-foreground">Original vs Revised vs Final — primary cost driver highlighted</p>
         <div className="h-72">
           <ResponsiveContainer width="100%" height="100%">
             <BarChart data={costData} margin={{ top: 5, right: 10, left: 10, bottom: 5 }}>
@@ -131,6 +173,48 @@ export function ProjectDetail() {
               <Bar dataKey="final" fill="var(--color-chart-2)" name="Final" radius={[4, 4, 0, 0]} />
             </BarChart>
           </ResponsiveContainer>
+        </div>
+        {/* Cost driver detail table */}
+        <div className="mt-4 overflow-x-auto">
+          <table className="w-full text-xs">
+            <thead>
+              <tr className="border-b border-border">
+                <th className="py-1.5 text-left font-semibold text-muted-foreground">Category</th>
+                <th className="py-1.5 text-right font-semibold text-muted-foreground">Original</th>
+                <th className="py-1.5 text-right font-semibold text-muted-foreground">Final</th>
+                <th className="py-1.5 text-right font-semibold text-muted-foreground">Variance</th>
+                <th className="py-1.5 text-right font-semibold text-muted-foreground">% of Overrun</th>
+              </tr>
+            </thead>
+            <tbody>
+              {costDrivers.drivers.map((d) => (
+                <tr key={d.category} className={cn('border-b border-border last:border-0', d.category === costDrivers.primaryDriver.category && 'bg-fade/5 font-medium')}>
+                  <td className="py-1.5">
+                    {d.category}
+                    {d.category === costDrivers.primaryDriver.category && <span className="ml-1 text-[9px] text-fade">PRIMARY</span>}
+                  </td>
+                  <td className="py-1.5 text-right text-muted-foreground">
+                    {formatCurrencyFull(d.category === 'Labor' ? project.originalEstimatedLabor
+                      : d.category === 'Materials' ? project.originalEstimatedMaterials
+                      : d.category === 'Equipment' ? project.originalEstimatedEquipment
+                      : d.category === 'Subcontracts' ? project.originalEstimatedSubcontracts
+                      : project.originalEstimatedOther)}
+                  </td>
+                  <td className="py-1.5 text-right">
+                    {formatCurrencyFull(d.category === 'Labor' ? project.finalLabor
+                      : d.category === 'Materials' ? project.finalMaterials
+                      : d.category === 'Equipment' ? project.finalEquipment
+                      : d.category === 'Subcontracts' ? project.finalSubcontracts
+                      : project.finalOther)}
+                  </td>
+                  <td className={cn('py-1.5 text-right', d.varianceDollars > 0 ? 'text-fade' : d.varianceDollars < 0 ? 'text-gain' : '')}>
+                    {d.varianceDollars > 0 ? '+' : ''}{formatCurrencyFull(d.varianceDollars)} ({d.varianceDollars > 0 ? '+' : ''}{formatPercent(d.variancePct)})
+                  </td>
+                  <td className="py-1.5 text-right text-muted-foreground">{(d.shareOfTotalVariance * 100).toFixed(0)}%</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         </div>
       </div>
     </div>

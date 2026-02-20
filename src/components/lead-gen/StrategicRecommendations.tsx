@@ -1,23 +1,41 @@
-import { ArrowRight, Zap, RefreshCw, BarChart3, Users, Database } from 'lucide-react';
-import type { PortfolioSummary } from '@/lib/types';
-import type { ProjectRecord } from '@/lib/types';
-import { calculateSegmentMetrics } from '@/lib/calculations';
+import { ArrowRight, Zap, RefreshCw, BarChart3, Users, Wrench } from 'lucide-react';
+import type { PortfolioSummary, ProjectRecord } from '@/lib/types';
+import { calculateSegmentMetrics, analyzePortfolioCostDrivers } from '@/lib/calculations';
 import { formatCurrency, formatPercent } from '@/lib/formatters';
 
 function generateRecommendations(summary: PortfolioSummary, projects: ProjectRecord[]) {
   const recs: { icon: typeof Zap; title: string; body: string; impact: string }[] = [];
   const segments = calculateSegmentMetrics(projects);
+  const analysis = analyzePortfolioCostDrivers(projects);
 
-  // 1. Estimating feedback loop
+  // 1. Cost driver-specific recommendation
   const fadedProjects = projects.filter((p) => p.overallGainFade === 'Fade');
-  if (fadedProjects.length > 0) {
+  if (fadedProjects.length > 0 && analysis.fadeDriverPatterns.length > 0) {
+    const topDriver = analysis.fadeDriverPatterns[0];
     const fadeDollars = fadedProjects.reduce((s, p) => s + Math.abs(p.gainFadeOrgFinalDollars), 0);
-    recs.push({
-      icon: RefreshCw,
-      title: 'Implement an Estimating Feedback Loop',
-      body: `${fadedProjects.length} projects faded, representing ${formatCurrency(fadeDollars)} in lost margin. A structured close-out review process that feeds actual costs back into estimating templates would systematically close this gap.`,
-      impact: `Potential recovery: ${formatCurrency(fadeDollars * 0.4)} - ${formatCurrency(fadeDollars * 0.6)} annually`,
-    });
+
+    if (topDriver.category === 'Labor') {
+      recs.push({
+        icon: Users,
+        title: 'Address Labor Cost Overruns Systematically',
+        body: `Labor is the primary fade driver in ${topDriver.timesPrimaryDriver} of ${fadedProjects.length} faded projects, totaling ${formatCurrency(topDriver.totalVarianceDollars)} in overruns. Review labor hour assumptions in estimating templates, compare actual crew productivity rates against bid assumptions, and investigate whether scope complexity is being underestimated.`,
+        impact: `Closing the labor gap by 50% = ${formatCurrency(topDriver.totalVarianceDollars * 0.5)} recovered annually`,
+      });
+    } else if (topDriver.category === 'Materials') {
+      recs.push({
+        icon: Wrench,
+        title: 'Tighten Materials Estimating & Procurement',
+        body: `Materials costs drove the fade in ${topDriver.timesPrimaryDriver} projects, averaging +${formatPercent(topDriver.averageVariancePct)} over estimate. Lock material pricing earlier in the bid process, improve takeoff accuracy, and track material waste/rework rates to identify root causes.`,
+        impact: `Reducing materials overruns by 50% = ${formatCurrency(topDriver.totalVarianceDollars * 0.5)} in savings`,
+      });
+    } else {
+      recs.push({
+        icon: RefreshCw,
+        title: `Investigate ${topDriver.category} Cost Patterns`,
+        body: `${topDriver.category} is the primary fade driver in ${topDriver.timesPrimaryDriver} projects, representing ${formatCurrency(topDriver.totalVarianceDollars)} in cost overruns. A structured close-out review process focused on ${topDriver.category.toLowerCase()} costs would help calibrate estimating templates.`,
+        impact: `Potential recovery: ${formatCurrency(fadeDollars * 0.4)} - ${formatCurrency(fadeDollars * 0.6)} annually`,
+      });
+    }
   }
 
   // 2. Segment focus strategy
@@ -25,31 +43,40 @@ function generateRecommendations(summary: PortfolioSummary, projects: ProjectRec
     const best = segments.reduce((a, b) => (a.averageMargin > b.averageMargin ? a : b));
     const worst = segments.reduce((a, b) => (a.averageMargin < b.averageMargin ? a : b));
     if (best.segment !== worst.segment) {
+      // Add segment-specific cost driver context
+      const segPattern = analysis.segmentCostPatterns.find((s) => s.segment === worst.segment);
+      const driverContext = segPattern ? ` (${worst.segment} fades are primarily ${segPattern.primaryDriverCategory.toLowerCase()}-driven)` : '';
+
       recs.push({
         icon: BarChart3,
         title: 'Reallocate Pursuit Resources by Segment Profitability',
-        body: `${best.segment} delivers ${formatPercent(best.averageMargin)} avg margin vs. ${worst.segment} at ${formatPercent(worst.averageMargin)}. Shifting 20% of pursuit effort from low-margin to high-margin segments could materially improve portfolio returns.`,
+        body: `${best.segment} delivers ${formatPercent(best.averageMargin)} avg margin vs. ${worst.segment} at ${formatPercent(worst.averageMargin)}${driverContext}. Shifting pursuit effort toward higher-margin segments and applying segment-specific estimating adjustments could materially improve portfolio returns.`,
         impact: `Margin lift: ${formatPercent((best.averageMargin - worst.averageMargin) * 0.2)} on shifted revenue`,
       });
     }
   }
 
-  // 3. Real-time visibility
-  recs.push({
-    icon: Database,
-    title: 'Connect Your ERP for Real-Time Intelligence',
-    body: 'This analysis is powerful but static. Live integration with Viewpoint, Sage, or Procore means you see margin erosion as it happens — not months later at close-out. Automated alerts flag projects deviating from estimate before the damage compounds.',
-    impact: 'Early intervention on just 2-3 projects per year pays for the entire system',
-  });
-
-  // 4. PM accountability / change management
-  if (summary.totalProjects >= 10) {
-    recs.push({
-      icon: Users,
-      title: 'Build PM Scorecards & Accountability Dashboards',
-      body: `Across ${summary.totalProjects} projects, individual PM performance varies significantly. PM-level dashboards that track estimating accuracy, cost control, and gain/fade create accountability and identify who needs coaching vs. who needs more work.`,
-      impact: 'Top-quartile PMs drive 2-3x the margin of bottom-quartile — making this visible changes behavior',
-    });
+  // 3. PM workload balance
+  const pmMap = new Map<string, { count: number; revenue: number }>();
+  for (const p of projects) {
+    if (!p.projectManager) continue;
+    const entry = pmMap.get(p.projectManager) ?? { count: 0, revenue: 0 };
+    entry.count++;
+    entry.revenue += p.finalContractValue;
+    pmMap.set(p.projectManager, entry);
+  }
+  const pmEntries = Array.from(pmMap.entries());
+  const maxPm = pmEntries.reduce((a, b) => a[1].revenue > b[1].revenue ? a : b, pmEntries[0]);
+  if (maxPm && summary.totalRevenue > 0) {
+    const share = maxPm[1].revenue / summary.totalRevenue;
+    if (share > 0.2) {
+      recs.push({
+        icon: Users,
+        title: 'Balance PM Workload & Build Bench Strength',
+        body: `${maxPm[0]} manages ${maxPm[1].count} projects (${formatPercent(share)} of revenue). This creates succession risk. Cross-training and knowledge transfer ensure continuity and enable you to scale without bottlenecks.`,
+        impact: 'Reduced key-person risk and capacity to take on more work',
+      });
+    }
   }
 
   return recs;
@@ -58,6 +85,8 @@ function generateRecommendations(summary: PortfolioSummary, projects: ProjectRec
 export function StrategicRecommendations({ summary, projects }: { summary: PortfolioSummary; projects: ProjectRecord[] }) {
   const recs = generateRecommendations(summary, projects);
 
+  if (recs.length === 0) return null;
+
   return (
     <div className="rounded-xl border border-primary/20 bg-card p-5 shadow-sm">
       <div className="flex items-center gap-2 mb-1">
@@ -65,7 +94,7 @@ export function StrategicRecommendations({ summary, projects }: { summary: Portf
         <h3 className="text-sm font-semibold text-foreground">Strategic Recommendations</h3>
       </div>
       <p className="text-xs text-muted-foreground mb-4">
-        Based on your portfolio data, here's where to focus for maximum impact.
+        Based on your cost driver analysis and portfolio data — where to focus for maximum impact.
       </p>
       <div className="space-y-4">
         {recs.map((rec) => (

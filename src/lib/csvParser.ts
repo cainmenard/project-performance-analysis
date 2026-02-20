@@ -8,6 +8,8 @@ const COLUMN_MAP: Record<string, keyof ProjectRecord> = {
   'Project Number1': 'projectNumber',
   'Year Completed': 'yearCompleted',
   'Market Segment1': 'marketSegment',
+  'Project Manager': 'projectManager',
+  'Estimator': 'estimator',
   'Original Contract Value': 'originalContractValue',
   'Revised Estimated Contract Amount (with Change Orders)': 'revisedContractValue',
   'Final Actual Contract Value': 'finalContractValue',
@@ -61,7 +63,7 @@ function mapRow(row: Record<string, unknown>): ProjectRecord {
     if (value === undefined) continue;
 
     if (field === 'customerName' || field === 'division' || field === 'projectName' ||
-        field === 'projectNumber' || field === 'marketSegment') {
+        field === 'projectNumber' || field === 'marketSegment' || field === 'projectManager' || field === 'estimator') {
       record[field] = String(value || '').trim();
     } else if (field === 'overallGainFade') {
       const str = String(value || '').trim();
@@ -78,6 +80,8 @@ function mapRow(row: Record<string, unknown>): ProjectRecord {
     projectNumber: '',
     yearCompleted: 0,
     marketSegment: '',
+    projectManager: '',
+    estimator: '',
     originalContractValue: 0,
     revisedContractValue: 0,
     finalContractValue: 0,

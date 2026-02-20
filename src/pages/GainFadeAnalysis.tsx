@@ -3,6 +3,7 @@ import { GainFadePieChart, GainFadeBySegmentChart, GainFadeByDivisionChart } fro
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from 'recharts';
 import { formatCurrency, formatPercent } from '@/lib/formatters';
 import { calculatePortfolioSummary } from '@/lib/calculations';
+import { AlertTriangle, RefreshCw } from 'lucide-react';
 
 function WaterfallChart({ projects }: { projects: import('@/lib/types').ProjectRecord[] }) {
   // Aggregate: original profit -> change orders impact -> execution impact -> final profit
@@ -82,6 +83,35 @@ function ProjectGainFadeList({ projects }: { projects: import('@/lib/types').Pro
   );
 }
 
+function GainFadeExecutiveCallout({ projects }: { projects: import('@/lib/types').ProjectRecord[] }) {
+  const fadedProjects = projects.filter((p) => p.overallGainFade === 'Fade');
+  const totalFadeDollars = fadedProjects.reduce((s, p) => s + Math.abs(p.gainFadeOrgFinalDollars), 0);
+
+  if (fadedProjects.length === 0) return null;
+
+  return (
+    <div className="rounded-xl border border-fade/20 bg-fade/5 p-5">
+      <div className="flex items-start gap-3">
+        <div className="shrink-0 rounded-lg bg-fade/10 p-2 mt-0.5">
+          <AlertTriangle className="h-4 w-4 text-fade" />
+        </div>
+        <div>
+          <h3 className="text-sm font-semibold text-foreground">Why This Matters to Your Bottom Line</h3>
+          <p className="mt-1 text-xs text-muted-foreground leading-relaxed">
+            Every faded project represents a failure in one of three areas: <span className="font-medium text-foreground">estimating accuracy</span>, <span className="font-medium text-foreground">change order capture</span>, or <span className="font-medium text-foreground">execution discipline</span>.
+            Your {fadedProjects.length} faded projects lost {formatCurrency(totalFadeDollars)} — an average of {formatCurrency(totalFadeDollars / fadedProjects.length)} per project.
+            With a structured close-out review feeding back into estimating, contractors typically recover 40-60% of fade losses within 12 months.
+          </p>
+          <div className="mt-2 inline-flex items-center gap-1.5 rounded-md bg-gain/10 px-2.5 py-1 text-xs font-medium text-gain">
+            <RefreshCw className="h-3 w-3" />
+            Potential annual recovery: {formatCurrency(totalFadeDollars * 0.4)} - {formatCurrency(totalFadeDollars * 0.6)}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export function GainFadeAnalysis() {
   const { filteredProjects } = useProjectData();
   const summary = calculatePortfolioSummary(filteredProjects);
@@ -94,6 +124,8 @@ export function GainFadeAnalysis() {
           {summary.gainCount} gains, {summary.fadeCount} fades — {formatPercent(summary.gainRate)} gain rate
         </p>
       </div>
+
+      <GainFadeExecutiveCallout projects={filteredProjects} />
 
       <WaterfallChart projects={filteredProjects} />
 

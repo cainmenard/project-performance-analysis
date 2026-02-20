@@ -5,6 +5,8 @@ import { ProfitMarginChart } from '@/components/charts/ProfitMarginChart';
 import { GainFadePieChart } from '@/components/charts/GainFadeChart';
 import { TopProjectsChart } from '@/components/charts/TopProjectsChart';
 import { AnalysisSummary } from '@/components/lead-gen/AnalysisSummary';
+import { RiskExposurePanel } from '@/components/lead-gen/RiskExposurePanel';
+import { StrategicRecommendations } from '@/components/lead-gen/StrategicRecommendations';
 import { CtaBanner } from '@/components/lead-gen/CtaBanner';
 
 export function ExecutiveSummary() {
@@ -16,11 +18,13 @@ export function ExecutiveSummary() {
       <div>
         <h2 className="text-xl font-bold tracking-tight">Executive Summary</h2>
         <p className="text-sm text-muted-foreground">
-          Portfolio overview across {summary.totalProjects} projects
+          Portfolio intelligence across {summary.totalProjects} projects — {summary.divisions.length} divisions, {summary.marketSegments.length} market segments
         </p>
       </div>
 
       <KpiCards summary={summary} />
+
+      <RiskExposurePanel summary={summary} projects={filteredProjects} />
 
       <AnalysisSummary summary={summary} projects={filteredProjects} />
 
@@ -30,6 +34,8 @@ export function ExecutiveSummary() {
       </div>
 
       <TopProjectsChart projects={filteredProjects} />
+
+      <StrategicRecommendations summary={summary} projects={filteredProjects} />
 
       <CtaBanner />
     </div>

@@ -26,7 +26,7 @@ export function CtaBanner() {
         </div>
         <div className="shrink-0 flex flex-col items-center gap-2">
           <a
-            href="https://automized.com"
+            href="https://cainmenard.com"
             target="_blank"
             rel="noopener noreferrer"
             className="inline-flex items-center gap-2 rounded-lg bg-primary px-6 py-3 text-sm font-semibold text-primary-foreground shadow-md transition-all hover:opacity-90 hover:shadow-lg whitespace-nowrap"

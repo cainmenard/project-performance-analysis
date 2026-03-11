@@ -17,7 +17,6 @@ export function Header() {
             <h1 className="text-lg font-semibold tracking-tight leading-tight">
               Project Performance Intelligence
             </h1>
-            <p className="text-[10px] text-muted-foreground tracking-wide">by Automized</p>
           </div>
         </div>
 

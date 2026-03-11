@@ -26,9 +26,6 @@ export function CtaBanner() {
         </div>
         <div className="shrink-0 flex flex-col items-center gap-2">
           <a
-            href="https://automized.com"
-            target="_blank"
-            rel="noopener noreferrer"
             className="inline-flex items-center gap-2 rounded-lg bg-primary px-6 py-3 text-sm font-semibold text-primary-foreground shadow-md transition-all hover:opacity-90 hover:shadow-lg whitespace-nowrap"
           >
             Let's Talk <ArrowRight className="h-4 w-4" />

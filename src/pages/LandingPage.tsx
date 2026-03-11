@@ -202,6 +202,9 @@ export function LandingPage() {
             </p>
             <div className="mt-6 flex flex-col sm:flex-row items-center justify-center gap-4">
               <a
+                href="https://cainmenard.com"
+                target="_blank"
+                rel="noopener noreferrer"
                 className="inline-flex items-center gap-2 rounded-lg bg-primary px-6 py-3 text-sm font-semibold text-primary-foreground shadow-md transition-all hover:opacity-90 hover:shadow-lg"
               >
                 Talk to Us About Your Portfolio <ArrowRight className="h-4 w-4" />

@@ -6,6 +6,7 @@ interface ProjectDataState {
   projects: ProjectRecord[];
   isLoaded: boolean;
   dataSource: 'none' | 'sample' | 'csv';
+  embed: boolean;
   filters: FilterState;
 }
 
@@ -15,20 +16,32 @@ type Action =
   | { type: 'SET_FILTERS'; payload: Partial<FilterState> }
   | { type: 'RESET' };
 
+const emptyFilters: FilterState = {
+  divisions: [],
+  marketSegments: [],
+  years: [],
+  gainFade: [],
+  customers: [],
+  projectManagers: [],
+  estimators: [],
+};
+
 const initialState: ProjectDataState = {
   projects: [],
   isLoaded: false,
   dataSource: 'none',
-  filters: {
-    divisions: [],
-    marketSegments: [],
-    years: [],
-    gainFade: [],
-    customers: [],
-    projectManagers: [],
-    estimators: [],
-  },
+  embed: false,
+  filters: emptyFilters,
 };
+
+// When the app is loaded inside the portfolio iframe (?embed=1), skip the
+// marketing landing page and boot straight into the analysis on sample data.
+function getInitialState(): ProjectDataState {
+  if (typeof window === 'undefined') return initialState;
+  const isEmbed = new URLSearchParams(window.location.search).get('embed') === '1';
+  if (!isEmbed) return initialState;
+  return { projects: sampleData, isLoaded: true, dataSource: 'sample', embed: true, filters: emptyFilters };
+}
 
 function reducer(state: ProjectDataState, action: Action): ProjectDataState {
   switch (action.type) {
@@ -57,7 +70,7 @@ export interface ProjectDataContextType {
 export const ProjectDataContext = createContext<ProjectDataContextType | null>(null);
 
 export function ProjectDataProvider({ children }: { children: ReactNode }) {
-  const [state, dispatch] = useReducer(reducer, initialState);
+  const [state, dispatch] = useReducer(reducer, undefined, getInitialState);
 
   const loadSampleData = useCallback(() => dispatch({ type: 'LOAD_SAMPLE' }), []);
   const loadCsvData = useCallback((data: ProjectRecord[]) => dispatch({ type: 'LOAD_CSV', payload: data }), []);

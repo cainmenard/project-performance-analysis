@@ -21,7 +21,7 @@ export function SegmentRevenueChart({ projects }: { projects: ProjectRecord[] })
               formatter={(value: unknown, _name: unknown, entry: { payload?: (typeof metrics)[number] }) => {
                 if (!entry.payload) return ['', ''];
                 const m = entry.payload;
-                return [`${formatCurrencyFull(Number(value ?? 0))} | ${m.projectCount} projects | Avg margin: ${formatPercent(m.averageMargin)}`, 'Revenue'];
+                return [`${formatCurrencyFull(Number(value ?? 0))} | ${m.projectCount} projects | Margin: ${formatPercent(m.weightedMargin)}`, 'Revenue'];
               }}
             />
             <Bar dataKey="totalRevenue" fill="var(--color-chart-1)" name="Revenue" radius={[0, 4, 4, 0]} />
@@ -34,8 +34,8 @@ export function SegmentRevenueChart({ projects }: { projects: ProjectRecord[] })
 
 export function SegmentMarginChart({ projects }: { projects: ProjectRecord[] }) {
   const metrics = calculateSegmentMetrics(projects)
-    .map((m) => ({ ...m, averageMarginPct: m.averageMargin * 100 }))
-    .sort((a, b) => b.averageMargin - a.averageMargin)
+    .map((m) => ({ ...m, weightedMarginPct: m.weightedMargin * 100 }))
+    .sort((a, b) => b.weightedMargin - a.weightedMargin)
     .slice(0, 12);
 
   return (
@@ -54,10 +54,10 @@ export function SegmentMarginChart({ projects }: { projects: ProjectRecord[] }) 
                 if (!entry.payload) return ['', ''];
                 const m = entry.payload;
                 const gainRate = m.projectCount > 0 ? m.gainCount / m.projectCount : 0;
-                return [`${formatPercent(m.averageMargin)} | ${m.projectCount} projects | ${formatPercent(gainRate)} gain rate | Net: ${formatCurrency(m.totalGainFade)}`, 'Avg Margin'];
+                return [`${formatPercent(m.weightedMargin)} | ${m.projectCount} projects | ${formatPercent(gainRate)} gain rate | Net: ${formatCurrency(m.totalGainFade)}`, 'Margin'];
               }}
             />
-            <Bar dataKey="averageMarginPct" fill="var(--color-chart-4)" name="Avg Margin" radius={[0, 4, 4, 0]} />
+            <Bar dataKey="weightedMarginPct" fill="var(--color-chart-4)" name="Margin" radius={[0, 4, 4, 0]} />
           </BarChart>
         </ResponsiveContainer>
       </div>
@@ -72,7 +72,7 @@ export function SegmentRadarChart({ projects }: { projects: ProjectRecord[] }) {
 
   const radarData = metrics.map((m) => ({
     segment: m.segment,
-    margin: m.averageMargin * 100,
+    margin: m.weightedMargin * 100,
     revenue: (m.totalRevenue / maxRevenue) * 100,
     projects: (m.projectCount / maxCount) * 100,
     gainRate: (m.gainCount / m.projectCount) * 100,
@@ -82,7 +82,7 @@ export function SegmentRadarChart({ projects }: { projects: ProjectRecord[] }) {
     <div className="rounded-xl border border-border bg-card p-5 shadow-sm">
       <h3 className="text-sm font-semibold text-foreground">Segment Performance Radar</h3>
       <p className="mb-4 text-xs text-muted-foreground">
-        Multi-dimensional view — which segments score highest across margin, volume, and estimating accuracy?
+        Which segments score highest across margin, volume, and estimating accuracy?
       </p>
       <div className="h-80">
         <ResponsiveContainer width="100%" height="100%">

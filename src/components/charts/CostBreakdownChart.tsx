@@ -3,16 +3,27 @@ import type { ProjectRecord } from '@/lib/types';
 import { calculateCostBreakdown } from '@/lib/calculations';
 import { formatCurrency, formatCurrencyFull, formatPercent } from '@/lib/formatters';
 
+const tooltipStyle = {
+  backgroundColor: 'var(--color-card)',
+  border: '1px solid var(--color-border)',
+  borderRadius: '8px',
+  fontSize: 12,
+};
+
+/**
+ * Three bars per category: the original estimate, the budget (original plus approved change
+ * orders) and the final cost. The step from the first bar to the second is scope the owner
+ * paid for. The step from the second to the third is the variance the project team owns.
+ */
 export function CostComparisonChart({ projects }: { projects: ProjectRecord[] }) {
-  const data = calculateCostBreakdown(projects).map((d) => ({
-    ...d,
-    variancePctDisplay: d.original > 0 ? ((d.final - d.original) / d.original) : 0,
-  }));
+  const data = calculateCostBreakdown(projects);
 
   return (
     <div className="rounded-xl border border-border bg-card p-5 shadow-sm">
-      <h3 className="text-sm font-semibold text-foreground">Cost Comparison: Original Estimated vs Final Actual</h3>
-      <p className="mb-4 text-xs text-muted-foreground">Aggregate cost by category — are you spending more than you estimated?</p>
+      <h3 className="text-sm font-semibold text-foreground">Cost Comparison: Original Estimate, Budget and Final</h3>
+      <p className="mb-4 text-xs text-muted-foreground">
+        Budget is the original estimate plus approved change orders. Variance is final cost against budget.
+      </p>
       <div className="h-72">
         <ResponsiveContainer width="100%" height="100%">
           <BarChart data={data} margin={{ top: 5, right: 10, left: 10, bottom: 5 }}>
@@ -20,52 +31,52 @@ export function CostComparisonChart({ projects }: { projects: ProjectRecord[] })
             <XAxis dataKey="category" tick={{ fontSize: 11, fill: 'var(--color-muted-foreground)' }} />
             <YAxis tick={{ fontSize: 11, fill: 'var(--color-muted-foreground)' }} tickFormatter={(v: number) => formatCurrency(v)} />
             <Tooltip
-              contentStyle={{ backgroundColor: 'var(--color-card)', border: '1px solid var(--color-border)', borderRadius: '8px', fontSize: 12 }}
+              contentStyle={tooltipStyle}
               formatter={(value: unknown, name?: string, entry?: { payload?: (typeof data)[number] }) => {
                 if (!entry?.payload) return ['', ''];
                 const d = entry.payload;
-                const variance = d.final - d.original;
-                const pctStr = d.original > 0 ? ` (${variance >= 0 ? '+' : ''}${formatPercent(d.variancePctDisplay)})` : '';
-                if (name === 'Original Estimated') return [formatCurrencyFull(Number(value ?? 0)), name];
-                return [`${formatCurrencyFull(Number(value ?? 0))}  |  Variance: ${variance >= 0 ? '+' : ''}${formatCurrencyFull(variance)}${pctStr}`, name];
+                const amount = formatCurrencyFull(Number(value ?? 0));
+                if (name === 'Budget') {
+                  return [`${amount}  |  Change orders: ${d.scopeChange >= 0 ? '+' : ''}${formatCurrencyFull(d.scopeChange)}`, name];
+                }
+                if (name === 'Final Actual') {
+                  const pctStr = d.budget > 0 ? ` (${d.variance >= 0 ? '+' : ''}${formatPercent(d.variancePct)})` : '';
+                  return [`${amount}  |  vs budget: ${d.variance >= 0 ? '+' : ''}${formatCurrencyFull(d.variance)}${pctStr}`, name];
+                }
+                return [amount, name];
               }}
             />
-            <Legend wrapperStyle={{ fontSize: 12 }} />
-            <Bar dataKey="original" fill="var(--color-chart-1)" name="Original Estimated" radius={[4, 4, 0, 0]} />
+            <Legend wrapperStyle={{ fontSize: 12 }} itemSorter={null} />
+            <Bar dataKey="original" fill="var(--color-chart-1)" name="Original Estimate" radius={[4, 4, 0, 0]} />
+            <Bar dataKey="budget" fill="var(--color-chart-3)" name="Budget" radius={[4, 4, 0, 0]} />
             <Bar dataKey="final" fill="var(--color-chart-2)" name="Final Actual" radius={[4, 4, 0, 0]} />
           </BarChart>
         </ResponsiveContainer>
       </div>
-      {/* Variance summary row */}
+      {/* Variance against budget, by category */}
       <div className="mt-3 flex flex-wrap gap-3">
-        {data.map((d) => {
-          const variance = d.final - d.original;
-          const pct = d.original > 0 ? variance / d.original : 0;
-          return (
-            <div key={d.category} className="text-xs">
-              <span className="text-muted-foreground">{d.category}: </span>
-              <span className={variance >= 0 ? 'text-fade font-medium' : 'text-gain font-medium'}>
-                {variance >= 0 ? '+' : ''}{formatCurrency(variance)} ({variance >= 0 ? '+' : ''}{formatPercent(pct)})
-              </span>
-            </div>
-          );
-        })}
+        {data.map((d) => (
+          <div key={d.category} className="text-xs">
+            <span className="text-muted-foreground">{d.category} vs budget: </span>
+            <span className={d.variance > 0 ? 'text-fade font-medium' : d.variance < 0 ? 'text-gain font-medium' : 'font-medium'}>
+              {d.variance > 0 ? '+' : ''}{formatCurrency(d.variance)} ({d.variance > 0 ? '+' : ''}{formatPercent(d.variancePct)})
+            </span>
+          </div>
+        ))}
       </div>
     </div>
   );
 }
 
 export function CostVarianceChart({ projects }: { projects: ProjectRecord[] }) {
-  const data = calculateCostBreakdown(projects).map((d) => ({
-    ...d,
-    variance: d.final - d.original,
-    variancePct: d.original > 0 ? (d.final - d.original) / d.original : 0,
-  }));
+  const data = calculateCostBreakdown(projects);
 
   return (
     <div className="rounded-xl border border-border bg-card p-5 shadow-sm">
-      <h3 className="text-sm font-semibold text-foreground">Cost Variance by Category</h3>
-      <p className="mb-4 text-xs text-muted-foreground">Overrun (positive) vs Underrun (negative) from original estimate</p>
+      <h3 className="text-sm font-semibold text-foreground">Cost Variance vs Budget, by Category</h3>
+      <p className="mb-4 text-xs text-muted-foreground">
+        Final cost minus budget. Above zero is an overrun. Approved change-order cost is in the budget, so it does not show here.
+      </p>
       <div className="h-64">
         <ResponsiveContainer width="100%" height="100%">
           <BarChart data={data} margin={{ top: 5, right: 10, left: 10, bottom: 5 }}>
@@ -73,12 +84,12 @@ export function CostVarianceChart({ projects }: { projects: ProjectRecord[] }) {
             <XAxis dataKey="category" tick={{ fontSize: 11, fill: 'var(--color-muted-foreground)' }} />
             <YAxis tick={{ fontSize: 11, fill: 'var(--color-muted-foreground)' }} tickFormatter={(v: number) => formatCurrency(v)} />
             <Tooltip
-              contentStyle={{ backgroundColor: 'var(--color-card)', border: '1px solid var(--color-border)', borderRadius: '8px', fontSize: 12 }}
+              contentStyle={tooltipStyle}
               formatter={(value: unknown, _name: unknown, entry: { payload?: (typeof data)[number] }) => {
                 if (!entry.payload) return ['', ''];
                 const d = entry.payload;
-                const pctStr = d.original > 0 ? ` (${d.variancePct >= 0 ? '+' : ''}${formatPercent(d.variancePct)})` : '';
-                return [`${formatCurrencyFull(Number(value ?? 0))}${pctStr}`, d.variance >= 0 ? 'Overrun' : 'Underrun'];
+                const pctStr = d.budget > 0 ? ` (${d.variancePct >= 0 ? '+' : ''}${formatPercent(d.variancePct)})` : '';
+                return [`${formatCurrencyFull(Number(value ?? 0))}${pctStr}`, d.variance >= 0 ? 'Over budget' : 'Under budget'];
               }}
             />
             <Bar dataKey="variance" name="Variance" radius={[4, 4, 0, 0]}>

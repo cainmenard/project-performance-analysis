@@ -4,7 +4,8 @@ import { useProjectData } from '@/hooks/useProjectData';
 import { GainFadePieChart, GainFadeBySegmentChart, GainFadeByDivisionChart, GainFadeByCustomerChart } from '@/components/charts/GainFadeChart';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from 'recharts';
 import { formatCurrency, formatCurrencyFull, formatPercent } from '@/lib/formatters';
-import { calculatePortfolioSummary, analyzePortfolioCostDrivers, analyzeProjectCostDrivers } from '@/lib/calculations';
+import { calculatePortfolioSummary, analyzePortfolioCostDrivers, analyzeProjectCostDrivers, COST_CATEGORIES } from '@/lib/calculations';
+import { LaborSplitLine } from '@/components/charts/LaborSplit';
 import type { ProjectRecord } from '@/lib/types';
 import type { ProjectCostDrivers, CostDriverDetail } from '@/lib/calculations';
 import { cn } from '@/lib/cn';
@@ -32,7 +33,9 @@ function WaterfallChart({ projects }: { projects: ProjectRecord[] }) {
     },
     {
       name: 'Change Order Impact',
-      value: changeOrderImpact,
+      // Height is the absolute value because the bar sits on a transparent base; the sign
+      // is carried by the base position, the color and the label.
+      value: Math.abs(changeOrderImpact),
       base: changeOrderImpact >= 0 ? totalOrigProfit : totalOrigProfit + changeOrderImpact,
       fill: changeOrderImpact >= 0 ? 'var(--color-gain)' : 'var(--color-fade)',
       label: `${changeOrderImpact >= 0 ? '+' : ''}${formatCurrency(changeOrderImpact)}`,
@@ -57,7 +60,7 @@ function WaterfallChart({ projects }: { projects: ProjectRecord[] }) {
     <div className="rounded-xl border border-border bg-card p-5 shadow-sm">
       <h3 className="text-sm font-semibold text-foreground">Profit Bridge: How Did We Get From Estimate to Actual?</h3>
       <p className="mb-4 text-xs text-muted-foreground">
-        From original estimated profit to final actual — what drove the change?
+        From original estimated profit to final actual: what drove the change?
       </p>
       <div className="h-72">
         <ResponsiveContainer width="100%" height="100%">
@@ -129,7 +132,7 @@ function CostDriverBreakdown({ drivers }: { drivers: ProjectCostDrivers[] }) {
     <div className="rounded-xl border border-border bg-card p-5 shadow-sm">
       <h3 className="text-sm font-semibold text-foreground">What's Driving the Fade? Cost Category Breakdown</h3>
       <p className="mb-4 text-xs text-muted-foreground">
-        Which direct cost categories are overrunning across faded projects
+        Final cost against budget on faded projects, by category. Approved change-order cost is in the budget.
       </p>
       <div className="h-56">
         <ResponsiveContainer width="100%" height="100%">
@@ -157,7 +160,7 @@ function CostDriverBreakdown({ drivers }: { drivers: ProjectCostDrivers[] }) {
         {aggregated.filter((a) => a.timesPrimary > 0).sort((a, b) => b.timesPrimary - a.timesPrimary).map((a) => (
           <div key={a.category} className="rounded-lg bg-muted/30 px-3 py-1.5 text-xs">
             <span className="font-medium">{a.category}</span>
-            <span className="text-muted-foreground"> — primary driver in </span>
+            <span className="text-muted-foreground">: primary driver in </span>
             <span className="font-semibold text-fade">{a.timesPrimary}</span>
             <span className="text-muted-foreground"> projects</span>
           </div>
@@ -208,7 +211,7 @@ function FadedProjectsDrillDown({ projects, onSelectProject }: {
   return (
     <div className="rounded-xl border border-border bg-card shadow-sm overflow-hidden">
       <div className="p-5 pb-3">
-        <h3 className="text-sm font-semibold text-foreground">All Faded Projects — with Cost Drivers</h3>
+        <h3 className="text-sm font-semibold text-foreground">All Faded Projects, with Cost Drivers</h3>
         <p className="text-xs text-muted-foreground">Click a project to drill into its direct cost breakdown</p>
       </div>
       <div className="overflow-x-auto">
@@ -269,15 +272,6 @@ function ProjectCostDrillDown({ analysis, onBack }: {
   const navigate = useNavigate();
   const p = analysis.project;
 
-  const costData = analysis.drivers.map((d) => ({
-    category: d.category,
-    variance: d.varianceDollars,
-    variancePct: d.variancePct,
-    share: d.shareOfTotalVariance,
-    hoursVariance: d.hoursVariance,
-    hoursVariancePct: d.hoursVariancePct,
-  }));
-
   return (
     <div className="space-y-4">
       <div className="flex items-center gap-3">
@@ -314,8 +308,10 @@ function ProjectCostDrillDown({ analysis, onBack }: {
             <p className="text-sm font-bold text-fade">{formatCurrencyFull(p.gainFadeOrgFinalDollars)}</p>
           </div>
           <div className="rounded-lg bg-card p-2 text-center border border-border">
-            <p className="text-[10px] text-muted-foreground">Cost Overrun</p>
-            <p className="text-sm font-bold text-fade">{formatCurrencyFull(analysis.totalCostVariance)}</p>
+            <p className="text-[10px] text-muted-foreground">Cost vs Budget</p>
+            <p className={cn('text-sm font-bold', analysis.totalCostVariance > 0 ? 'text-fade' : 'text-gain')}>
+              {analysis.totalCostVariance > 0 ? '+' : ''}{formatCurrencyFull(analysis.totalCostVariance)}
+            </p>
           </div>
           <div className="rounded-lg bg-card p-2 text-center border border-border">
             <p className="text-[10px] text-muted-foreground">Margin Change</p>
@@ -329,78 +325,76 @@ function ProjectCostDrillDown({ analysis, onBack }: {
       {/* Direct Cost Breakdown Table */}
       <div className="rounded-xl border border-border bg-card p-5 shadow-sm">
         <h3 className="text-sm font-semibold text-foreground">Direct Cost Breakdown</h3>
-        <p className="mb-4 text-xs text-muted-foreground">Which cost categories drove the variance — and by how much</p>
-        <table className="w-full text-sm">
-          <thead>
-            <tr className="border-b border-border">
-              <th className="py-2 text-left text-xs font-semibold text-muted-foreground">Category</th>
-              <th className="py-2 text-right text-xs font-semibold text-muted-foreground">Original Est.</th>
-              <th className="py-2 text-right text-xs font-semibold text-muted-foreground">Final Actual</th>
-              <th className="py-2 text-right text-xs font-semibold text-muted-foreground">Variance ($)</th>
-              <th className="py-2 text-right text-xs font-semibold text-muted-foreground">Variance (%)</th>
-              <th className="py-2 text-right text-xs font-semibold text-muted-foreground">Share of Overrun</th>
-            </tr>
-          </thead>
-          <tbody>
-            {[
-              { cat: 'Labor', orig: p.originalEstimatedLabor, final: p.finalLabor },
-              { cat: 'Materials', orig: p.originalEstimatedMaterials, final: p.finalMaterials },
-              { cat: 'Equipment', orig: p.originalEstimatedEquipment, final: p.finalEquipment },
-              { cat: 'Subcontracts', orig: p.originalEstimatedSubcontracts, final: p.finalSubcontracts },
-              { cat: 'Other', orig: p.originalEstimatedOther, final: p.finalOther },
-            ].map((row) => {
-              const driver = costData.find((d) => d.category === row.cat);
-              const isPrimary = analysis.primaryDriver.category === row.cat;
-              return (
-                <tr key={row.cat} className={cn('border-b border-border last:border-0', isPrimary && 'bg-fade/5')}>
-                  <td className="py-2.5 font-medium">
-                    {row.cat}
-                    {isPrimary && <span className="ml-1.5 text-[10px] text-fade font-semibold">PRIMARY</span>}
-                  </td>
-                  <td className="py-2.5 text-right text-muted-foreground">{formatCurrencyFull(row.orig)}</td>
-                  <td className="py-2.5 text-right">{formatCurrencyFull(row.final)}</td>
-                  <td className={cn('py-2.5 text-right font-medium', (driver?.variance ?? 0) > 0 ? 'text-fade' : (driver?.variance ?? 0) < 0 ? 'text-gain' : '')}>
-                    {(driver?.variance ?? 0) > 0 ? '+' : ''}{formatCurrencyFull(driver?.variance ?? 0)}
-                  </td>
-                  <td className={cn('py-2.5 text-right', (driver?.variancePct ?? 0) > 0 ? 'text-fade' : (driver?.variancePct ?? 0) < 0 ? 'text-gain' : '')}>
-                    {(driver?.variancePct ?? 0) > 0 ? '+' : ''}{formatPercent(driver?.variancePct ?? 0)}
-                  </td>
-                  <td className="py-2.5 text-right text-muted-foreground">
-                    {((driver?.share ?? 0) * 100).toFixed(0)}%
-                  </td>
-                </tr>
-              );
-            })}
-            <tr className="font-semibold">
-              <td className="py-2.5">Total Cost</td>
-              <td className="py-2.5 text-right">{formatCurrencyFull(p.originalEstimatedCost)}</td>
-              <td className="py-2.5 text-right">{formatCurrencyFull(p.finalCost)}</td>
-              <td className={cn('py-2.5 text-right', analysis.totalCostVariance > 0 ? 'text-fade' : 'text-gain')}>
-                {analysis.totalCostVariance > 0 ? '+' : ''}{formatCurrencyFull(analysis.totalCostVariance)}
-              </td>
-              <td className={cn('py-2.5 text-right', analysis.totalCostVariancePct > 0 ? 'text-fade' : 'text-gain')}>
-                {analysis.totalCostVariancePct > 0 ? '+' : ''}{formatPercent(analysis.totalCostVariancePct)}
-              </td>
-              <td className="py-2.5 text-right">100%</td>
-            </tr>
-          </tbody>
-        </table>
-        {/* Labor hours detail if available */}
-        {p.originalEstimatedLaborHours > 0 && (
-          <div className="mt-3 rounded-lg bg-muted/30 p-3 text-xs">
-            <span className="font-medium">Labor Hours:</span>{' '}
-            <span className="text-muted-foreground">
-              Estimated {p.originalEstimatedLaborHours.toLocaleString()} hrs → Actual {p.finalLaborHours.toLocaleString()} hrs
-              {' '}
-            </span>
-            <span className={cn('font-medium', p.finalLaborHours > p.originalEstimatedLaborHours ? 'text-fade' : 'text-gain')}>
-              ({p.finalLaborHours > p.originalEstimatedLaborHours ? '+' : ''}
-              {(p.finalLaborHours - p.originalEstimatedLaborHours).toLocaleString()} hrs,{' '}
-              {p.finalLaborHours > p.originalEstimatedLaborHours ? '+' : ''}
-              {formatPercent((p.finalLaborHours - p.originalEstimatedLaborHours) / p.originalEstimatedLaborHours)})
-            </span>
-          </div>
-        )}
+        <p className="mb-4 text-xs text-muted-foreground">
+          Final cost against the {analysis.budgetLabel}, by category. Change-order cost is shown in its own column and is not counted as overrun.
+        </p>
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="border-b border-border">
+                <th className="py-2 text-left text-xs font-semibold text-muted-foreground">Category</th>
+                <th className="py-2 text-right text-xs font-semibold text-muted-foreground">Original Est.</th>
+                <th className="py-2 text-right text-xs font-semibold text-muted-foreground">Change Orders</th>
+                <th className="py-2 text-right text-xs font-semibold text-muted-foreground">Budget</th>
+                <th className="py-2 text-right text-xs font-semibold text-muted-foreground">Final Actual</th>
+                <th className="py-2 text-right text-xs font-semibold text-muted-foreground">Variance ($)</th>
+                <th className="py-2 text-right text-xs font-semibold text-muted-foreground">Variance (%)</th>
+                <th className="py-2 text-right text-xs font-semibold text-muted-foreground">Share of Variance</th>
+              </tr>
+            </thead>
+            <tbody>
+              {COST_CATEGORIES.map((cat) => {
+                const d = analysis.drivers.find((x) => x.category === cat);
+                if (!d) return null;
+                const isPrimary = analysis.primaryExplainsOutcome && analysis.primaryDriver.category === cat;
+                return (
+                  <tr key={cat} className={cn('border-b border-border last:border-0', isPrimary && 'bg-fade/5')}>
+                    <td className="py-2.5 font-medium">
+                      {cat}
+                      {isPrimary && <span className="ml-1.5 text-[10px] text-fade font-semibold">PRIMARY</span>}
+                    </td>
+                    <td className="py-2.5 text-right text-muted-foreground">{formatCurrencyFull(d.originalDollars)}</td>
+                    <td className="py-2.5 text-right text-muted-foreground">
+                      {d.scopeChangeDollars > 0 ? '+' : ''}{formatCurrencyFull(d.scopeChangeDollars)}
+                    </td>
+                    <td className="py-2.5 text-right">{formatCurrencyFull(d.budgetDollars)}</td>
+                    <td className="py-2.5 text-right">{formatCurrencyFull(d.finalDollars)}</td>
+                    <td className={cn('py-2.5 text-right font-medium', d.varianceDollars > 0 ? 'text-fade' : d.varianceDollars < 0 ? 'text-gain' : '')}>
+                      {d.varianceDollars > 0 ? '+' : ''}{formatCurrencyFull(d.varianceDollars)}
+                    </td>
+                    <td className={cn('py-2.5 text-right', d.variancePct > 0 ? 'text-fade' : d.variancePct < 0 ? 'text-gain' : '')}>
+                      {d.variancePct > 0 ? '+' : ''}{formatPercent(d.variancePct)}
+                    </td>
+                    <td className="py-2.5 text-right text-muted-foreground">
+                      {(d.shareOfTotalVariance * 100).toFixed(0)}%
+                    </td>
+                  </tr>
+                );
+              })}
+              <tr className="font-semibold">
+                <td className="py-2.5">Total Cost</td>
+                <td className="py-2.5 text-right">{formatCurrencyFull(p.originalEstimatedCost)}</td>
+                <td className="py-2.5 text-right">
+                  {analysis.totalScopeChange > 0 ? '+' : ''}{formatCurrencyFull(analysis.totalScopeChange)}
+                </td>
+                <td className="py-2.5 text-right">{formatCurrencyFull(p.originalEstimatedCost + analysis.totalScopeChange)}</td>
+                <td className="py-2.5 text-right">{formatCurrencyFull(p.finalCost)}</td>
+                <td className={cn('py-2.5 text-right', analysis.totalCostVariance > 0 ? 'text-fade' : 'text-gain')}>
+                  {analysis.totalCostVariance > 0 ? '+' : ''}{formatCurrencyFull(analysis.totalCostVariance)}
+                </td>
+                <td className={cn('py-2.5 text-right', analysis.totalCostVariancePct > 0 ? 'text-fade' : 'text-gain')}>
+                  {analysis.totalCostVariancePct > 0 ? '+' : ''}{formatPercent(analysis.totalCostVariancePct)}
+                </td>
+                <td className="py-2.5 text-right">100%</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <LaborSplitLine
+          split={analysis.laborSplit}
+          budgetLabel={analysis.budgetLabel}
+          scopeHours={analysis.drivers.find((x) => x.category === 'Labor')?.scopeHours}
+        />
       </div>
     </div>
   );
@@ -554,7 +548,7 @@ export function GainFadeAnalysis() {
         <div>
           <h2 className="text-xl font-bold tracking-tight">Gain / Fade Analysis</h2>
           <p className="text-sm text-muted-foreground">
-            Drill-down: {fadedProjects.length} faded projects — {formatCurrency(totalFadeDollars)} in total margin erosion
+            Drill-down: {fadedProjects.length} faded projects, {formatCurrency(totalFadeDollars)} in total margin erosion
           </p>
         </div>
 
@@ -580,7 +574,7 @@ export function GainFadeAnalysis() {
       <div>
         <h2 className="text-xl font-bold tracking-tight">Gain / Fade Analysis</h2>
         <p className="text-sm text-muted-foreground">
-          How well are you estimating? {summary.gainCount} gains, {summary.fadeCount} fades — {formatPercent(summary.gainRate)} gain rate
+          How well are you estimating? {summary.gainCount} gains, {summary.fadeCount} fades, {formatPercent(summary.gainRate)} gain rate
         </p>
       </div>
 
@@ -600,7 +594,7 @@ export function GainFadeAnalysis() {
           </p>
           <p className="text-xs text-muted-foreground mt-1">
             {netGainFade >= 0
-              ? 'Your portfolio is generating more profit than originally estimated. Drill into the data below to understand which segments, customers, and projects are driving this gain — and where you can improve further.'
+              ? 'Your portfolio is generating more profit than originally estimated. Drill into the data below to understand which segments, customers, and projects are driving this gain, and where you can improve further.'
               : `Your portfolio is generating less profit than originally estimated. ${fadedProjects.length} projects faded a total of ${formatCurrency(totalFadeDollars)}. The primary cost driver across faded projects is ${costDriverAnalysis.overallPrimaryFadeDriver.toLowerCase()}.`
             }
           </p>

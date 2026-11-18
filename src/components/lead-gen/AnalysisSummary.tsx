@@ -1,5 +1,5 @@
 import { Lightbulb, AlertTriangle, TrendingUp, Sparkles, BarChart3 } from 'lucide-react';
-import type { PortfolioSummary, ProjectRecord } from '@/lib/types';
+import type { ProjectRecord } from '@/lib/types';
 import { generateDynamicInsights } from '@/lib/calculations';
 import type { DynamicInsight } from '@/lib/calculations';
 import type { ReactNode } from 'react';
@@ -27,7 +27,7 @@ const categoryLabels: Record<DynamicInsight['category'], string> = {
   risk: 'Risk',
 };
 
-export function AnalysisSummary({ summary: _summary, projects }: { summary: PortfolioSummary; projects: ProjectRecord[] }) {
+export function AnalysisSummary({ projects }: { projects: ProjectRecord[] }) {
   const insights = generateDynamicInsights(projects);
 
   if (insights.length === 0) return null;
@@ -42,7 +42,7 @@ export function AnalysisSummary({ summary: _summary, projects }: { summary: Port
         <h3 className="text-sm font-semibold text-foreground">Executive Insights</h3>
       </div>
       <p className="text-xs text-muted-foreground mb-4">
-        Data-driven findings from your portfolio — what the numbers are telling you, and what to do about it.
+        Data-driven findings from your portfolio: what the numbers are telling you, and what to do about it.
       </p>
       <div className="space-y-3">
         {topInsights.map((insight, i) => {

@@ -1,6 +1,7 @@
 import { AlertTriangle, TrendingDown, DollarSign, Target } from 'lucide-react';
 import type { PortfolioSummary } from '@/lib/types';
 import type { ProjectRecord } from '@/lib/types';
+import { calculatePortfolioCostTotals } from '@/lib/calculations';
 import { formatCurrency, formatPercent } from '@/lib/formatters';
 
 function computeRiskMetrics(summary: PortfolioSummary, projects: ProjectRecord[]) {
@@ -8,69 +9,68 @@ function computeRiskMetrics(summary: PortfolioSummary, projects: ProjectRecord[]
   const totalFadeDollars = fadedProjects.reduce((s, p) => s + Math.abs(p.gainFadeOrgFinalDollars), 0);
   const avgFadePerProject = fadedProjects.length > 0 ? totalFadeDollars / fadedProjects.length : 0;
 
-  // Cost overruns: projects where final cost exceeded original estimated cost
-  const overrunProjects = projects.filter((p) => p.finalCost > p.originalEstimatedCost);
-  const totalOverrun = overrunProjects.reduce((s, p) => s + (p.finalCost - p.originalEstimatedCost), 0);
+  // Final cost against budget (original estimate plus approved change orders). Measuring
+  // against the original estimate instead would count change-order cost as overrun.
+  const cost = calculatePortfolioCostTotals(projects);
 
-  // Low margin projects (below 10%)
+  // 10% is the line for "low margin" here: thin enough that one bad month of labor erases
+  // the profit. Adjust to the contractor's own floor if this becomes configurable.
   const lowMarginProjects = projects.filter((p) => p.finalGrossProfitMargin < 0.10);
   const lowMarginRevenue = lowMarginProjects.reduce((s, p) => s + p.finalContractValue, 0);
 
-  // What 1% margin improvement would mean
+  // One point of margin on total revenue, as a dollar figure.
   const onePercentImpact = summary.totalRevenue * 0.01;
-
-  // Estimating accuracy gap
-  const totalOriginalEstCost = projects.reduce((s, p) => s + p.originalEstimatedCost, 0);
-  const totalFinalCost = projects.reduce((s, p) => s + p.finalCost, 0);
-  const estimatingGap = totalFinalCost - totalOriginalEstCost;
-  const estimatingGapPct = totalOriginalEstCost > 0 ? estimatingGap / totalOriginalEstCost : 0;
 
   return {
     fadedProjects: fadedProjects.length,
     totalFadeDollars,
     avgFadePerProject,
-    overrunProjects: overrunProjects.length,
-    totalOverrun,
+    cost,
     lowMarginProjects: lowMarginProjects.length,
     lowMarginRevenue,
     onePercentImpact,
-    estimatingGap,
-    estimatingGapPct,
   };
 }
 
 export function RiskExposurePanel({ summary, projects }: { summary: PortfolioSummary; projects: ProjectRecord[] }) {
   const risk = computeRiskMetrics(summary, projects);
+  const { cost } = risk;
+  const overBudget = cost.executionVariance > 0;
+  // Only mention change orders when there are some, and only call the baseline "budget"
+  // when at least one project has a revised estimate behind it.
+  const scopeNote = cost.scopeChange !== 0
+    ? ` Budget includes ${formatCurrency(cost.scopeChange)} of approved change-order cost, which is not overrun.`
+    : '';
 
   const items = [
     {
       icon: TrendingDown,
       label: 'Total Fade Exposure',
       value: formatCurrency(risk.totalFadeDollars),
-      detail: `${risk.fadedProjects} projects faded — avg ${formatCurrency(risk.avgFadePerProject)} per faded project`,
+      detail: `${risk.fadedProjects} projects faded, averaging ${formatCurrency(risk.avgFadePerProject)} each`,
       severity: risk.totalFadeDollars > 0 ? 'high' : 'low',
     },
     {
       icon: AlertTriangle,
-      label: 'Cost Estimating Gap',
-      value: formatCurrency(Math.abs(risk.estimatingGap)),
-      detail: risk.estimatingGap > 0
-        ? `Final costs exceeded estimates by ${formatPercent(risk.estimatingGapPct)} across ${risk.overrunProjects} projects`
-        : `Final costs came in ${formatPercent(Math.abs(risk.estimatingGapPct))} under estimates — strong estimating`,
-      severity: risk.estimatingGap > 0 ? 'high' : 'low',
+      label: 'Cost Overrun vs Budget',
+      value: formatCurrency(Math.abs(cost.executionVariance)),
+      detail: overBudget
+        ? `Final cost ran ${formatPercent(cost.executionVariancePct)} over budget, with ${cost.overrunProjectCount} of ${projects.length} projects over.${scopeNote}`
+        : `Final cost came in ${formatPercent(Math.abs(cost.executionVariancePct))} under budget.${scopeNote}`,
+      severity: overBudget ? 'high' : 'low',
     },
     {
       icon: Target,
       label: 'Low-Margin Revenue at Risk',
       value: formatCurrency(risk.lowMarginRevenue),
-      detail: `${risk.lowMarginProjects} projects operating below 10% margin — vulnerable to any cost surprise`,
+      detail: `${risk.lowMarginProjects} projects finished below 10% margin`,
       severity: risk.lowMarginProjects > 2 ? 'high' : 'low',
     },
     {
       icon: DollarSign,
-      label: 'Value of 1% Margin Improvement',
+      label: 'Value of 1 Point of Margin',
       value: formatCurrency(risk.onePercentImpact),
-      detail: 'Additional profit if portfolio margin improves by just one percentage point',
+      detail: 'Added profit if portfolio margin improves by one percentage point',
       severity: 'opportunity' as const,
     },
   ];
@@ -82,7 +82,7 @@ export function RiskExposurePanel({ summary, projects }: { summary: PortfolioSum
         <h3 className="text-sm font-semibold text-foreground">Money Left on the Table</h3>
       </div>
       <p className="text-xs text-muted-foreground mb-4">
-        These are the dollars your portfolio is leaving behind — and the opportunity to recapture them.
+        Where profit went missing against the plan, and what one point of margin is worth.
       </p>
       <div className="grid gap-3 sm:grid-cols-2">
         {items.map((item) => (

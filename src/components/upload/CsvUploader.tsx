@@ -21,11 +21,13 @@ export function CsvUploader() {
     setIsLoading(true);
     try {
       const result = await parseCSV(file);
-      if (result.errors.length > 0 && result.data.length === 0) {
-        setError(result.errors.join('\n'));
+      // Any error stops the load. The parser only reports errors for files it cannot
+      // analyze correctly (missing required columns, no project rows).
+      if (result.errors.length > 0) {
+        setError(result.errors.join(' '));
         return;
       }
-      loadCsvData(result.data);
+      loadCsvData(result.data, result.warnings);
       navigate('/dashboard');
     } catch {
       setError('Failed to parse CSV file. Please check the format.');

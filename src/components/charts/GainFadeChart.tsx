@@ -98,7 +98,7 @@ export function GainFadeBySegmentChart({ projects }: { projects: ProjectRecord[]
   return (
     <div className="rounded-xl border border-border bg-card p-5 shadow-sm">
       <h3 className="text-sm font-semibold text-foreground">Gain/Fade by Market Segment</h3>
-      <p className="mb-4 text-xs text-muted-foreground">Net gain/fade dollars per segment — where are you winning and losing?</p>
+      <p className="mb-4 text-xs text-muted-foreground">Net gain/fade dollars per segment. Where are you winning and losing?</p>
       <div className="h-80">
         <ResponsiveContainer width="100%" height="100%">
           <BarChart data={metrics} layout="vertical" margin={{ top: 5, right: 20, left: 80, bottom: 5 }}>
@@ -110,7 +110,7 @@ export function GainFadeBySegmentChart({ projects }: { projects: ProjectRecord[]
               formatter={(value: unknown, _name: unknown, entry: { payload?: (typeof metrics)[number] }) => {
                 if (!entry.payload) return ['', ''];
                 const m = entry.payload;
-                return [`${formatCurrencyFull(Number(value ?? 0))} | ${m.gainCount}G / ${m.fadeCount}F | Avg margin: ${formatPercent(m.averageMargin)}`, 'Net Gain/Fade'];
+                return [`${formatCurrencyFull(Number(value ?? 0))} | ${m.gainCount}G / ${m.fadeCount}F | Margin: ${formatPercent(m.weightedMargin)}`, 'Net Gain/Fade'];
               }}
             />
             <ReferenceLine x={0} stroke="var(--color-muted-foreground)" />
@@ -183,7 +183,7 @@ export function GainFadeByCustomerChart({ projects }: { projects: ProjectRecord[
               formatter={(value: unknown, _name: unknown, entry: { payload?: (typeof metrics)[number] }) => {
                 if (!entry.payload) return ['', ''];
                 const m = entry.payload;
-                return [`${formatCurrencyFull(Number(value ?? 0))} | ${m.projectCount} projects | Avg margin: ${formatPercent(m.averageMargin)}`, 'Net Gain/Fade'];
+                return [`${formatCurrencyFull(Number(value ?? 0))} | ${m.projectCount} projects | Margin: ${formatPercent(m.weightedMargin)}`, 'Net Gain/Fade'];
               }}
             />
             <ReferenceLine x={0} stroke="var(--color-muted-foreground)" />

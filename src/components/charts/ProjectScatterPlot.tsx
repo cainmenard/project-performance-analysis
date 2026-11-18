@@ -90,7 +90,7 @@ export function ProjectScatterPlot({ projects, onSelectProject }: {
         <div>
           <h3 className="text-sm font-semibold text-foreground">Project Profitability Map</h3>
           <p className="text-xs text-muted-foreground">
-            Contract value vs profit margin — bubble size shows gain/fade magnitude. Click to drill down.
+            Contract value vs profit margin. Bubble size shows gain/fade magnitude. Click to drill down.
           </p>
         </div>
         <div className="text-right shrink-0 ml-4">

@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { sampleData } from './sampleData';
+import { calculatePortfolioCostTotals, calculatePortfolioSummary, portfolioLaborSplit } from './calculations';
 
 // Real firms that must not appear in synthetic data. The sample portfolio pairs each customer
 // with invented fade results, so a real name here would publish made-up performance about a
@@ -27,6 +28,32 @@ describe('sample data', () => {
       expect(p.finalProfit).toBeCloseTo(p.finalContractValue - p.finalCost, 2);
       expect(p.gainFadeOrgFinalDollars).toBeCloseTo(p.finalProfit - p.originalEstimatedProfit, 2);
     }
+  });
+
+  it('gives every project a bid date before its completion date, in its completion year', () => {
+    for (const p of sampleData) {
+      expect(p.bidDate, p.projectNumber).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+      expect(p.completionDate, p.projectNumber).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+      expect(p.bidDate! < p.completionDate!, p.projectNumber).toBe(true);
+      expect(Number(p.completionDate!.slice(0, 4)), p.projectNumber).toBe(p.yearCompleted);
+    }
+  });
+
+  it('still supports every sentence on the landing page', () => {
+    // The landing page builds its three findings from this data and words them with a
+    // fixed direction ("ran over", "overstates"). If a change to the sample data flips
+    // one of these, the copy would be false, so the build fails here first.
+    const cost = calculatePortfolioCostTotals(sampleData);
+    const labor = portfolioLaborSplit(sampleData);
+    const summary = calculatePortfolioSummary(sampleData);
+    const meanMargin = sampleData.reduce((s, p) => s + p.finalGrossProfitMargin, 0) / sampleData.length;
+    expect(cost.scopeChange).toBeGreaterThan(0);
+    expect(cost.executionVariance).toBeGreaterThan(0);
+    expect(cost.finalCost - cost.originalCost).toBeGreaterThan(cost.executionVariance);
+    expect(labor.totalVariance).toBeGreaterThan(0);
+    expect(labor.hoursEffect).toBeGreaterThan(labor.rateEffect);
+    expect(labor.rateEffect).toBeGreaterThan(0);
+    expect(meanMargin).toBeGreaterThan(summary.portfolioMargin);
   });
 
   it('has unique project numbers', () => {

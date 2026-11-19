@@ -18,6 +18,8 @@ const TEMPLATE_COLUMNS: { header: string; field: Field }[] = [
   { header: 'Market Segment', field: 'marketSegment' },
   { header: 'Project Manager', field: 'projectManager' },
   { header: 'Estimator', field: 'estimator' },
+  { header: 'Bid Date', field: 'bidDate' },
+  { header: 'Completion Date', field: 'completionDate' },
   { header: 'Original Contract Value', field: 'originalContractValue' },
   { header: 'Revised Estimated Contract Amount (with Change Orders)', field: 'revisedContractValue' },
   { header: 'Final Actual Contract Value', field: 'finalContractValue' },
@@ -85,6 +87,9 @@ const TEXT_FIELDS = new Set<Field>([
   'customerName', 'division', 'projectName', 'projectNumber', 'marketSegment', 'projectManager', 'estimator',
 ]);
 
+/** Fields that hold a date, stored as "YYYY-MM-DD". */
+const DATE_FIELDS = new Set<Field>(['bidDate', 'completionDate']);
+
 /** Fields stored as a fraction (0.225 means 22.5%). */
 const FRACTION_FIELDS = new Set<Field>([
   'originalEstimatedProfitMargin', 'revisedEstimatedProfitMargin', 'finalGrossProfitMargin',
@@ -117,6 +122,30 @@ function parseNumber(raw: unknown): { value: number; hadPercentSign: boolean } |
   return { value: parenNegative ? -num : num, hadPercentSign };
 }
 
+/**
+ * Read a date into "YYYY-MM-DD". Accepts 2021-06-15, 2021-06, 6/15/2021 and 6/2021
+ * (month first, the way US job cost exports write it). A date with no day gets the 1st,
+ * since only the month is used. Returns null for anything else, including a spreadsheet
+ * serial number: guessing at those would put jobs in the wrong year without saying so.
+ */
+export function parseDate(raw: unknown): string | null {
+  const text = String(raw ?? '').trim();
+  if (!text) return null;
+  let y: number, m: number, d: number;
+  let match = /^(\d{4})-(\d{1,2})(?:-(\d{1,2}))?(?:[T ].*)?$/.exec(text);
+  if (match) {
+    [y, m, d] = [Number(match[1]), Number(match[2]), Number(match[3] ?? 1)];
+  } else {
+    match = /^(\d{1,2})\/(?:(\d{1,2})\/)?(\d{4})$/.exec(text);
+    if (!match) return null;
+    [m, d, y] = [Number(match[1]), Number(match[2] ?? 1), Number(match[3])];
+  }
+  // 1990 to 2100 is a sanity range for a completed-contracts file, there to catch typos
+  // like 0202 or 20244 before they reach a chart axis.
+  if (y < 1990 || y > 2100 || m < 1 || m > 12 || d < 1 || d > 31) return null;
+  return `${y}-${String(m).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+}
+
 function emptyRecord(): ProjectRecord {
   return {
     customerName: '', division: '', projectName: '', projectNumber: '', yearCompleted: 0,
@@ -143,7 +172,11 @@ function emptyRecord(): ProjectRecord {
  * Any derived figure the file leaves blank is computed from the figures it does supply, so a
  * file with only contract values and costs still produces correct profit, margin and gain/fade.
  */
-function mapRow(row: Record<string, unknown>, fieldByHeader: Map<string, Field>): ProjectRecord {
+function mapRow(
+  row: Record<string, unknown>,
+  fieldByHeader: Map<string, Field>,
+  badDates: { count: number },
+): ProjectRecord {
   const record = emptyRecord();
   const supplied = new Set<Field>();
   let gainFadeText = '';
@@ -162,6 +195,16 @@ function mapRow(row: Record<string, unknown>, fieldByHeader: Map<string, Field>)
       gainFadeText = String(raw ?? '').trim().toLowerCase();
       continue;
     }
+    if (DATE_FIELDS.has(field)) {
+      const date = parseDate(raw);
+      if (date) {
+        (record as unknown as Record<string, unknown>)[field] = date;
+        supplied.add(field);
+      } else if (String(raw ?? '').trim()) {
+        badDates.count += 1; // counted and reported once, not dropped silently
+      }
+      continue;
+    }
     const parsed = parseNumber(raw);
     if (!parsed) continue;
     let value = parsed.value;
@@ -173,6 +216,12 @@ function mapRow(row: Record<string, unknown>, fieldByHeader: Map<string, Field>)
     }
     (record as unknown as Record<string, unknown>)[field] = value;
     supplied.add(field);
+  }
+
+  // A file with completion dates but no "Year Completed" column still gets its year, so
+  // the year filter and year trend work.
+  if (!supplied.has('yearCompleted') && record.completionDate) {
+    record.yearCompleted = Number(record.completionDate.slice(0, 4));
   }
 
   // Fill in what the file did not supply. Each formula is the definition of the field.
@@ -260,8 +309,9 @@ export function parseCsvText(text: string): ParseResult {
   }
 
   const data: ProjectRecord[] = [];
+  const badDates = { count: 0 };
   for (const row of results.data) {
-    const mapped = mapRow(row, fieldByHeader);
+    const mapped = mapRow(row, fieldByHeader, badDates);
     if (mapped.projectName || mapped.projectNumber) data.push(mapped);
   }
   if (data.length === 0) {
@@ -278,6 +328,12 @@ export function parseCsvText(text: string): ParseResult {
   const categoryFields: Field[] = ['finalLabor', 'finalMaterials', 'finalEquipment', 'finalSubcontracts', 'finalOther'];
   if (!categoryFields.some((f) => present.has(f))) {
     warnings.push('No cost category columns found (labor, materials, equipment, subcontracts, other). Cost driver analysis will be empty.');
+  }
+  if (!present.has('bidDate') || !present.has('completionDate')) {
+    warnings.push('No "Bid Date" and "Completion Date" columns found. Market exposure cannot be estimated without both.');
+  }
+  if (badDates.count > 0) {
+    warnings.push(`${badDates.count} date${badDates.count === 1 ? '' : 's'} could not be read and ${badDates.count === 1 ? 'was' : 'were'} left blank. Use YYYY-MM-DD or M/D/YYYY.`);
   }
   if (unknownHeaders.length > 0) {
     warnings.push(`Ignored ${unknownHeaders.length} unrecognized column${unknownHeaders.length === 1 ? '' : 's'}: ${unknownHeaders.slice(0, 6).join(', ')}${unknownHeaders.length > 6 ? ', ...' : ''}.`);
@@ -305,6 +361,8 @@ function templateExample(): ProjectRecord {
     marketSegment: 'Office / Commercial',
     projectManager: 'Jordan Example',
     estimator: 'Riley Example',
+    bidDate: '2023-05-15',
+    completionDate: '2024-03-29',
     originalContractValue: 500000,
     revisedContractValue: 525000,
     finalContractValue: 525000,
@@ -352,6 +410,6 @@ function csvCell(value: string | number): string {
 export function generateTemplateCSV(): string {
   const example = templateExample();
   const headers = TEMPLATE_COLUMNS.map((c) => csvCell(c.header));
-  const row = TEMPLATE_COLUMNS.map((c) => csvCell(example[c.field]));
+  const row = TEMPLATE_COLUMNS.map((c) => csvCell(example[c.field] ?? ''));
   return [headers.join(','), row.join(',')].join('\n');
 }

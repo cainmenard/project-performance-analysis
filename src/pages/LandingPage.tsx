@@ -4,6 +4,8 @@ import {
   PieChart,
   Target,
   ArrowRight,
+  LineChart,
+  ListTree,
   Scale,
   Clock,
   Percent,
@@ -71,6 +73,16 @@ const capabilities = [
     title: 'Segment and customer comparison',
     desc: 'Margin, gain rate and fade drivers by market segment, division, customer, project manager and estimator.',
   },
+  {
+    icon: LineChart,
+    title: 'Market exposure',
+    desc: "How far a BLS price index moved between each job's bid month and its completion, next to what the job's materials cost did.",
+  },
+  {
+    icon: ListTree,
+    title: 'Project drill-down',
+    desc: "Any job's cost table: original estimate, change orders, budget, final cost and variance by category.",
+  },
 ];
 
 const methodNotes = [
@@ -78,6 +90,8 @@ const methodNotes = [
   'Cost variance is final cost minus the revised budget (original estimate plus approved change orders).',
   'Margin is total profit over total revenue, not an average of project margins.',
   'Labor variance is split into an hours effect and a rate effect, project by project.',
+  "Market exposure is budgeted materials times the change in a BLS price index from the bid month to the job's average month.",
+  'Index values are copied without change from data.cainmenard.com, which pulls them from BLS.',
 ];
 
 export function LandingPage() {

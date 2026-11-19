@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import Papa from 'papaparse';
-import { generateTemplateCSV, parseCsvText } from './csvParser';
+import { generateTemplateCSV, parseCsvText, parseDate } from './csvParser';
 
 describe('CSV template', () => {
   it('has one example value for every header', () => {
@@ -18,6 +18,8 @@ describe('CSV template', () => {
     expect(p.projectManager).toBe('Jordan Example');
     expect(p.estimator).toBe('Riley Example');
     expect(p.projectNumber).toBe('10001');
+    expect(p.bidDate).toBe('2023-05-15');
+    expect(p.completionDate).toBe('2024-03-29');
     expect(p.originalContractValue).toBe(500000);
     const sum = (a: number, b: number, c: number, d: number, e: number) => a + b + c + d + e;
     expect(p.originalEstimatedCost).toBe(sum(p.originalEstimatedLabor, p.originalEstimatedMaterials, p.originalEstimatedEquipment, p.originalEstimatedSubcontracts, p.originalEstimatedOther));
@@ -78,5 +80,41 @@ describe('CSV parsing', () => {
     expect(data[0].originalEstimatedProfitMargin).toBeCloseTo(0.20, 10);
     expect(data[0].gainFadeOrgFinalDollars).toBe(-50_000);
     expect(data[1].finalGrossProfitMargin).toBeCloseTo(0.24, 10);
+  });
+});
+
+describe('dates', () => {
+  it('reads ISO and US formats and gives a missing day the 1st', () => {
+    expect(parseDate('2021-06-15')).toBe('2021-06-15');
+    expect(parseDate('2021-6')).toBe('2021-06-01');
+    expect(parseDate('6/15/2021')).toBe('2021-06-15');
+    expect(parseDate('6/2021')).toBe('2021-06-01');
+    expect(parseDate('2021-06-15T00:00:00Z')).toBe('2021-06-15');
+  });
+
+  it('rejects what it cannot read with confidence', () => {
+    for (const bad of ['', 'June 2021', '44362', '13/01/2021', '2021-13-01', '6/15/21', '0202-01-01']) {
+      expect(parseDate(bad), bad).toBeNull();
+    }
+  });
+
+  it('fills the completion year from the date and reports unreadable dates once', () => {
+    const csv = [
+      'Project Name,Original Contract Value,Final Actual Contract Value,Original Estimated Cost,Final Actual Cost,Bid Date,Completion Date',
+      'Job A,1000000,1000000,800000,850000,3/1/2021,2022-08-15',
+      'Job B,500000,500000,400000,380000,sometime,2023-02-01',
+    ].join('\n');
+    const { data, warnings } = parseCsvText(csv);
+    expect(data[0].bidDate).toBe('2021-03-01');
+    expect(data[0].yearCompleted).toBe(2022);
+    expect(data[1].bidDate).toBeUndefined();
+    expect(data[1].yearCompleted).toBe(2023);
+    expect(warnings.join(' ')).toMatch(/1 date could not be read/);
+    expect(warnings.join(' ')).not.toMatch(/No "Bid Date"/);
+  });
+
+  it('tells the user when the date columns are missing', () => {
+    const csv = 'Project Name,Original Contract Value,Final Actual Contract Value,Original Estimated Cost,Final Actual Cost\nJob A,1,1,1,1';
+    expect(parseCsvText(csv).warnings.join(' ')).toMatch(/Market exposure cannot be estimated/);
   });
 });

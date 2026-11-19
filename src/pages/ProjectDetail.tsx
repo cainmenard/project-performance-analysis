@@ -1,11 +1,49 @@
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, Link } from 'react-router-dom';
+import type { ProjectRecord } from '@/lib/types';
 import { useProjectData } from '@/hooks/useProjectData';
 import { formatCurrencyFull, formatPercent, formatNumber } from '@/lib/formatters';
 import { analyzeProjectCostDrivers, COST_CATEGORIES } from '@/lib/calculations';
 import { LaborSplitLine } from '@/components/charts/LaborSplit';
+import { DEFAULT_MATERIALS_SERIES, getMarketSeries, projectMarketExposure } from '@/lib/marketExposure';
 import { cn } from '@/lib/cn';
 import { ArrowLeft, User, Calculator, AlertTriangle, TrendingUp } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
+
+const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+
+function monthYear(date: string): string {
+  return `${MONTHS[Number(date.slice(5, 7)) - 1]} ${date.slice(0, 4)}`;
+}
+
+/** "Bid Nov 2020, completed Jan 2022" when the file carries both dates. */
+function jobDates(bidDate?: string, completionDate?: string): string | null {
+  if (!bidDate || !completionDate) return null;
+  return `Bid ${monthYear(bidDate)}, completed ${monthYear(completionDate)}`;
+}
+
+/**
+ * One line of market context under the cost table: how far the default materials index
+ * moved over this job, and how the job's materials variance compares. Hidden when the job
+ * has no dates. The Market Exposure page has the other indexes and the caveats.
+ */
+function MarketLine({ project }: { project: ProjectRecord }) {
+  const exposure = projectMarketExposure(project, DEFAULT_MATERIALS_SERIES);
+  const series = getMarketSeries(DEFAULT_MATERIALS_SERIES);
+  if (!exposure || !series) return null;
+  const sign = (v: number) => (v > 0 ? '+' : '');
+  return (
+    <div className="mt-2 rounded-lg bg-muted/30 p-3 text-xs leading-relaxed">
+      <span className="font-medium">Market:</span>{' '}
+      <span className="text-muted-foreground">
+        {series.title} moved {sign(exposure.materials.meanChangePct)}{formatPercent(exposure.materials.meanChangePct)} from
+        the bid month to the job average. On {formatCurrencyFull(exposure.budgetMaterials)} of budgeted materials that is an
+        exposure of {sign(exposure.materialsExposure)}{formatCurrencyFull(Math.round(exposure.materialsExposure))}; materials
+        actually ran {sign(exposure.materialsVariance)}{formatCurrencyFull(exposure.materialsVariance)}.{' '}
+      </span>
+      <Link to="/market" className="font-medium text-primary hover:underline">Market Exposure</Link>
+    </div>
+  );
+}
 
 function MetricCard({ label, value, sub }: { label: string; value: string; sub?: string }) {
   return (
@@ -65,7 +103,7 @@ export function ProjectDetail() {
           <div>
             <h2 className="text-xl font-bold tracking-tight">{project.projectName}</h2>
             <p className="text-sm text-muted-foreground">
-              {project.customerName} &middot; #{project.projectNumber} &middot; {project.division} &middot; {project.marketSegment} &middot; {project.yearCompleted}
+              {project.customerName} &middot; #{project.projectNumber} &middot; {project.division} &middot; {project.marketSegment} &middot; {jobDates(project.bidDate, project.completionDate) ?? project.yearCompleted}
             </p>
             <div className="mt-1 flex items-center gap-4 text-xs text-muted-foreground">
               <span className="inline-flex items-center gap-1"><User className="h-3 w-3" /> PM: {project.projectManager}</span>
@@ -221,6 +259,7 @@ export function ProjectDetail() {
           budgetLabel={costDrivers.budgetLabel}
           scopeHours={costDrivers.drivers.find((x) => x.category === 'Labor')?.scopeHours}
         />
+        <MarketLine project={project} />
       </div>
     </div>
   );

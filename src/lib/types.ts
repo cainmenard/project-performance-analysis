@@ -8,6 +8,13 @@ export interface ProjectRecord {
   marketSegment: string;
   projectManager: string;
   estimator: string;
+  /**
+   * Bid date and completion date as "YYYY-MM-DD". Optional: files without them load and
+   * analyze as before, and only the Market Exposure page needs them (it measures how a
+   * price index moved between these two months).
+   */
+  bidDate?: string;
+  completionDate?: string;
 
   // Contract Values
   originalContractValue: number;

@@ -8,6 +8,7 @@ import { ProjectPortfolio } from '@/pages/ProjectPortfolio';
 import { GainFadeAnalysis } from '@/pages/GainFadeAnalysis';
 import { CostAnalysis } from '@/pages/CostAnalysis';
 import { MarketSegments } from '@/pages/MarketSegments';
+import { MarketExposure } from '@/pages/MarketExposure';
 import { ProjectDetail } from '@/pages/ProjectDetail';
 
 // In embed mode the sample data is already loaded at boot, so the marketing
@@ -30,6 +31,7 @@ export default function App() {
             <Route path="/gain-fade" element={<GainFadeAnalysis />} />
             <Route path="/costs" element={<CostAnalysis />} />
             <Route path="/segments" element={<MarketSegments />} />
+            <Route path="/market" element={<MarketExposure />} />
             <Route path="/project/:id" element={<ProjectDetail />} />
           </Route>
           <Route path="*" element={<Navigate to="/" replace />} />

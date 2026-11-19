@@ -1,18 +1,11 @@
-import { createContext, useReducer, useCallback, type ReactNode } from 'react';
+import { useReducer, useCallback, type ReactNode } from 'react';
 import type { ProjectRecord, FilterState } from '@/lib/types';
 import { sampleData } from '@/lib/sampleData';
-
-interface ProjectDataState {
-  projects: ProjectRecord[];
-  isLoaded: boolean;
-  dataSource: 'none' | 'sample' | 'csv';
-  embed: boolean;
-  filters: FilterState;
-}
+import { ProjectDataContext, type ProjectDataState } from './projectDataContextDef';
 
 type Action =
   | { type: 'LOAD_SAMPLE' }
-  | { type: 'LOAD_CSV'; payload: ProjectRecord[] }
+  | { type: 'LOAD_CSV'; payload: ProjectRecord[]; warnings: string[] }
   | { type: 'SET_FILTERS'; payload: Partial<FilterState> }
   | { type: 'RESET' };
 
@@ -31,6 +24,7 @@ const initialState: ProjectDataState = {
   isLoaded: false,
   dataSource: 'none',
   embed: false,
+  dataWarnings: [],
   filters: emptyFilters,
 };
 
@@ -40,15 +34,15 @@ function getInitialState(): ProjectDataState {
   if (typeof window === 'undefined') return initialState;
   const isEmbed = new URLSearchParams(window.location.search).get('embed') === '1';
   if (!isEmbed) return initialState;
-  return { projects: sampleData, isLoaded: true, dataSource: 'sample', embed: true, filters: emptyFilters };
+  return { projects: sampleData, isLoaded: true, dataSource: 'sample', embed: true, dataWarnings: [], filters: emptyFilters };
 }
 
 function reducer(state: ProjectDataState, action: Action): ProjectDataState {
   switch (action.type) {
     case 'LOAD_SAMPLE':
-      return { ...state, projects: sampleData, isLoaded: true, dataSource: 'sample', filters: initialState.filters };
+      return { ...state, projects: sampleData, isLoaded: true, dataSource: 'sample', dataWarnings: [], filters: initialState.filters };
     case 'LOAD_CSV':
-      return { ...state, projects: action.payload, isLoaded: true, dataSource: 'csv', filters: initialState.filters };
+      return { ...state, projects: action.payload, isLoaded: true, dataSource: 'csv', dataWarnings: action.warnings, filters: initialState.filters };
     case 'SET_FILTERS':
       return { ...state, filters: { ...state.filters, ...action.payload } };
     case 'RESET':
@@ -58,22 +52,11 @@ function reducer(state: ProjectDataState, action: Action): ProjectDataState {
   }
 }
 
-export interface ProjectDataContextType {
-  state: ProjectDataState;
-  loadSampleData: () => void;
-  loadCsvData: (data: ProjectRecord[]) => void;
-  setFilters: (filters: Partial<FilterState>) => void;
-  resetData: () => void;
-  filteredProjects: ProjectRecord[];
-}
-
-export const ProjectDataContext = createContext<ProjectDataContextType | null>(null);
-
 export function ProjectDataProvider({ children }: { children: ReactNode }) {
   const [state, dispatch] = useReducer(reducer, undefined, getInitialState);
 
   const loadSampleData = useCallback(() => dispatch({ type: 'LOAD_SAMPLE' }), []);
-  const loadCsvData = useCallback((data: ProjectRecord[]) => dispatch({ type: 'LOAD_CSV', payload: data }), []);
+  const loadCsvData = useCallback((data: ProjectRecord[], warnings: string[] = []) => dispatch({ type: 'LOAD_CSV', payload: data, warnings }), []);
   const setFilters = useCallback((filters: Partial<FilterState>) => dispatch({ type: 'SET_FILTERS', payload: filters }), []);
   const resetData = useCallback(() => dispatch({ type: 'RESET' }), []);
 

@@ -1,7 +1,8 @@
 import { useParams, useNavigate } from 'react-router-dom';
 import { useProjectData } from '@/hooks/useProjectData';
 import { formatCurrencyFull, formatPercent, formatNumber } from '@/lib/formatters';
-import { analyzeProjectCostDrivers } from '@/lib/calculations';
+import { analyzeProjectCostDrivers, COST_CATEGORIES } from '@/lib/calculations';
+import { LaborSplitLine } from '@/components/charts/LaborSplit';
 import { cn } from '@/lib/cn';
 import { ArrowLeft, User, Calculator, AlertTriangle, TrendingUp } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
@@ -125,7 +126,7 @@ export function ProjectDetail() {
           sub={`Original: ${formatPercent(project.originalEstimatedProfitMargin)}`}
         />
         <MetricCard label="Gain/Fade ($)" value={formatCurrencyFull(project.gainFadeOrgFinalDollars)} />
-        <MetricCard label="Labor Hours" value={formatNumber(project.finalLaborHours)} sub={`Est: ${formatNumber(project.originalEstimatedLaborHours)}`} />
+        <MetricCard label="Labor Hours" value={formatNumber(project.finalLaborHours)} sub={`Budget: ${formatNumber(costDrivers.laborSplit.budgetHours)}`} />
         <MetricCard label="Original Value" value={formatCurrencyFull(project.originalContractValue)} />
         <MetricCard label="Change Orders" value={formatCurrencyFull(project.revisedContractValue - project.originalContractValue)} />
       </div>
@@ -156,7 +157,7 @@ export function ProjectDetail() {
       {/* Cost Breakdown with Driver Highlighting */}
       <div className="rounded-xl border border-border bg-card p-5 shadow-sm">
         <h3 className="text-sm font-semibold text-foreground">Cost Breakdown by Category</h3>
-        <p className="mb-4 text-xs text-muted-foreground">Original vs Revised vs Final — primary cost driver highlighted</p>
+        <p className="mb-4 text-xs text-muted-foreground">Original estimate, revised budget and final cost. Variance below is final against the {costDrivers.budgetLabel}.</p>
         <div className="h-72">
           <ResponsiveContainer width="100%" height="100%">
             <BarChart data={costData} margin={{ top: 5, right: 10, left: 10, bottom: 5 }}>
@@ -181,41 +182,45 @@ export function ProjectDetail() {
               <tr className="border-b border-border">
                 <th className="py-1.5 text-left font-semibold text-muted-foreground">Category</th>
                 <th className="py-1.5 text-right font-semibold text-muted-foreground">Original</th>
+                <th className="py-1.5 text-right font-semibold text-muted-foreground">Change Orders</th>
+                <th className="py-1.5 text-right font-semibold text-muted-foreground">Budget</th>
                 <th className="py-1.5 text-right font-semibold text-muted-foreground">Final</th>
-                <th className="py-1.5 text-right font-semibold text-muted-foreground">Variance</th>
-                <th className="py-1.5 text-right font-semibold text-muted-foreground">% of Overrun</th>
+                <th className="py-1.5 text-right font-semibold text-muted-foreground">Variance vs Budget</th>
+                <th className="py-1.5 text-right font-semibold text-muted-foreground">Share of Variance</th>
               </tr>
             </thead>
             <tbody>
-              {costDrivers.drivers.map((d) => (
-                <tr key={d.category} className={cn('border-b border-border last:border-0', d.category === costDrivers.primaryDriver.category && 'bg-fade/5 font-medium')}>
-                  <td className="py-1.5">
-                    {d.category}
-                    {d.category === costDrivers.primaryDriver.category && <span className="ml-1 text-[9px] text-fade">PRIMARY</span>}
-                  </td>
-                  <td className="py-1.5 text-right text-muted-foreground">
-                    {formatCurrencyFull(d.category === 'Labor' ? project.originalEstimatedLabor
-                      : d.category === 'Materials' ? project.originalEstimatedMaterials
-                      : d.category === 'Equipment' ? project.originalEstimatedEquipment
-                      : d.category === 'Subcontracts' ? project.originalEstimatedSubcontracts
-                      : project.originalEstimatedOther)}
-                  </td>
-                  <td className="py-1.5 text-right">
-                    {formatCurrencyFull(d.category === 'Labor' ? project.finalLabor
-                      : d.category === 'Materials' ? project.finalMaterials
-                      : d.category === 'Equipment' ? project.finalEquipment
-                      : d.category === 'Subcontracts' ? project.finalSubcontracts
-                      : project.finalOther)}
-                  </td>
-                  <td className={cn('py-1.5 text-right', d.varianceDollars > 0 ? 'text-fade' : d.varianceDollars < 0 ? 'text-gain' : '')}>
-                    {d.varianceDollars > 0 ? '+' : ''}{formatCurrencyFull(d.varianceDollars)} ({d.varianceDollars > 0 ? '+' : ''}{formatPercent(d.variancePct)})
-                  </td>
-                  <td className="py-1.5 text-right text-muted-foreground">{(d.shareOfTotalVariance * 100).toFixed(0)}%</td>
-                </tr>
-              ))}
+              {COST_CATEGORIES.map((cat) => {
+                const d = costDrivers.drivers.find((x) => x.category === cat);
+                if (!d) return null;
+                // Highlight the driver only when it explains the outcome, in the color of
+                // that outcome: an overrun on a fade is red, a saving on a gain is green.
+                const isPrimary = costDrivers.primaryExplainsOutcome && d.category === costDrivers.primaryDriver.category;
+                return (
+                  <tr key={cat} className={cn('border-b border-border last:border-0', isPrimary && (isFade ? 'bg-fade/5 font-medium' : 'bg-gain/5 font-medium'))}>
+                    <td className="py-1.5">
+                      {cat}
+                      {isPrimary && <span className={cn('ml-1 text-[9px]', isFade ? 'text-fade' : 'text-gain')}>PRIMARY</span>}
+                    </td>
+                    <td className="py-1.5 text-right text-muted-foreground">{formatCurrencyFull(d.originalDollars)}</td>
+                    <td className="py-1.5 text-right text-muted-foreground">{d.scopeChangeDollars > 0 ? '+' : ''}{formatCurrencyFull(d.scopeChangeDollars)}</td>
+                    <td className="py-1.5 text-right">{formatCurrencyFull(d.budgetDollars)}</td>
+                    <td className="py-1.5 text-right">{formatCurrencyFull(d.finalDollars)}</td>
+                    <td className={cn('py-1.5 text-right', d.varianceDollars > 0 ? 'text-fade' : d.varianceDollars < 0 ? 'text-gain' : '')}>
+                      {d.varianceDollars > 0 ? '+' : ''}{formatCurrencyFull(d.varianceDollars)} ({d.varianceDollars > 0 ? '+' : ''}{formatPercent(d.variancePct)})
+                    </td>
+                    <td className="py-1.5 text-right text-muted-foreground">{(d.shareOfTotalVariance * 100).toFixed(0)}%</td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </div>
+        <LaborSplitLine
+          split={costDrivers.laborSplit}
+          budgetLabel={costDrivers.budgetLabel}
+          scopeHours={costDrivers.drivers.find((x) => x.category === 'Labor')?.scopeHours}
+        />
       </div>
     </div>
   );

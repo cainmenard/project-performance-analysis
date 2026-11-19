@@ -39,9 +39,9 @@ export function KpiCards({ summary }: { summary: PortfolioSummary }) {
         icon={<DollarSign className="h-4 w-4" />}
       />
       <KpiCard
-        title="Avg Profit Margin"
-        value={formatPercent(summary.averageProfitMargin)}
-        subtitle={`Total profit: ${formatCurrency(summary.totalProfit)}`}
+        title="Portfolio Margin"
+        value={formatPercent(summary.portfolioMargin)}
+        subtitle={`${formatCurrency(summary.totalProfit)} profit over revenue`}
         icon={<Percent className="h-4 w-4" />}
       />
       <KpiCard

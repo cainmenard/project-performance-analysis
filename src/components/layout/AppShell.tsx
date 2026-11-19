@@ -21,6 +21,14 @@ export function AppShell() {
           <div className="mb-4">
             <FilterBar />
           </div>
+          {state.dataWarnings.length > 0 && (
+            <div className="mb-4 rounded-lg border border-warning/30 bg-warning/5 p-3 text-xs text-foreground">
+              <p className="font-semibold">Notes on the uploaded file</p>
+              <ul className="mt-1 list-disc space-y-0.5 pl-4 text-muted-foreground">
+                {state.dataWarnings.map((w) => <li key={w}>{w}</li>)}
+              </ul>
+            </div>
+          )}
           <Outlet />
         </main>
       </div>

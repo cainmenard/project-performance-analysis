@@ -59,7 +59,8 @@ export interface ProjectRecord {
 export interface PortfolioSummary {
   totalProjects: number;
   totalRevenue: number;
-  averageProfitMargin: number;
+  /** Total profit over total revenue (revenue-weighted, not a mean of project margins). */
+  portfolioMargin: number;
   averageContractValue: number;
   gainCount: number;
   fadeCount: number;

@@ -1,73 +1,60 @@
-# React + TypeScript + Vite
+# Project Performance Intelligence
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+Gain/fade analysis for completed construction projects. Upload a completed-contracts CSV
+and see which jobs gained or faded against the original estimate, which cost category
+drove each one, and how much of the variance was change-order scope and how much was
+execution.
 
-Currently, two official plugins are available:
+Live: https://project-performance-analysis.vercel.app
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) (or [oxc](https://oxc.rs) when used in [rolldown-vite](https://vite.dev/guide/rolldown)) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+Everything runs in the browser. No file is uploaded to a server.
 
-## React Compiler
+## How the numbers are built
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+| Measure | Definition | Why |
+|---|---|---|
+| Gain/fade | Final profit minus the profit in the original estimate | The standard completed-contract view of estimating and execution together |
+| Budget | Revised estimate (original plus approved change orders). Falls back to the original estimate for a project with no revised estimate | Change-order cost is scope the owner paid for, so it is not an overrun |
+| Cost variance | Final cost minus budget, by category | The part of the variance the project team owns |
+| Labor hours effect | (actual hours - budget hours) x budget rate | Productivity and missed scope |
+| Labor rate effect | (actual rate - budget rate) x actual hours | Wages, overtime and crew mix |
+| Margin | Total profit over total revenue | A mean of project margins gives a small job the same weight as a large one |
 
-## Expanding the ESLint configuration
+The formulas live in `src/lib/calculations.ts`, each with a comment giving the reason for it.
 
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
+## Data
 
-```js
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
+- **Sample data** (`src/lib/sampleData.ts`) is synthetic: 48 projects for an invented
+  mechanical contractor. Every company, project and person in it is invented. A test fails
+  the build if a real contractor name is added.
+- **Your data**: download the CSV template from the landing page. Required columns are a
+  project name or number, original and final contract value, and original estimated and
+  final cost. Everything else is optional; the app says what it cannot compute without it.
+  Files built on the earlier template headers still load.
 
-      // Remove tseslint.configs.recommended and replace with this
-      tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      tseslint.configs.stylisticTypeChecked,
+## Develop
 
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+```
+npm install
+npm run dev      # local dev server
+npm test         # unit tests (vitest)
+npm run lint
+npm run build    # type-check and production build
 ```
 
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
+Stack: React 19, TypeScript, Vite, Tailwind CSS 4, Recharts, PapaParse. Deployed on Vercel.
 
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
+## Embed mode
 
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+Add `?embed=1` to any route to skip the landing page and boot on the sample data. The
+Field Intelligence page on cainmenard.com uses this.
+
+## Layout
+
+```
+src/lib/calculations.ts   every metric and diagnosis
+src/lib/csvParser.ts      template, header matching, validation
+src/lib/sampleData.ts     the synthetic portfolio
+src/pages/                one file per screen
+src/components/           charts, layout, upload
 ```

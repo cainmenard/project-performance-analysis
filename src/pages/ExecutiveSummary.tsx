@@ -17,7 +17,7 @@ export function ExecutiveSummary() {
       <div>
         <h2 className="text-xl font-bold tracking-tight">Executive Summary</h2>
         <p className="text-sm text-muted-foreground">
-          Portfolio intelligence across {summary.totalProjects} projects — {summary.divisions.length} divisions, {summary.marketSegments.length} market segments
+          Portfolio intelligence across {summary.totalProjects} projects, {summary.divisions.length} divisions, {summary.marketSegments.length} market segments
         </p>
       </div>
 
@@ -25,7 +25,7 @@ export function ExecutiveSummary() {
 
       <RiskExposurePanel summary={summary} projects={filteredProjects} />
 
-      <AnalysisSummary summary={summary} projects={filteredProjects} />
+      <AnalysisSummary projects={filteredProjects} />
 
       <div className="grid gap-6 lg:grid-cols-2">
         <ProfitMarginChart projects={filteredProjects} />

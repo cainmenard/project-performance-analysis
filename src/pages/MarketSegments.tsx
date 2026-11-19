@@ -14,7 +14,7 @@ function YearOverYearChart({ projects }: { projects: import('@/lib/types').Proje
   const chartData = yearMetrics.map((y) => ({
     year: String(y.year),
     revenue: y.totalRevenue,
-    margin: y.averageMargin * 100,
+    margin: y.weightedMargin * 100,
     gainRate: y.gainRate * 100,
     projects: y.projectCount,
     gainFade: y.totalGainFade,
@@ -40,7 +40,7 @@ function YearOverYearChart({ projects }: { projects: import('@/lib/types').Proje
             />
             <Legend wrapperStyle={{ fontSize: 11 }} />
             <Bar yAxisId="left" dataKey="revenue" fill="var(--color-chart-1)" name="Revenue" radius={[4, 4, 0, 0]} opacity={0.7} />
-            <Line yAxisId="right" type="monotone" dataKey="margin" stroke="var(--color-chart-4)" name="Avg Margin %" strokeWidth={2} dot={{ fill: 'var(--color-chart-4)', r: 4 }} />
+            <Line yAxisId="right" type="monotone" dataKey="margin" stroke="var(--color-chart-4)" name="Margin %" strokeWidth={2} dot={{ fill: 'var(--color-chart-4)', r: 4 }} />
             <Line yAxisId="right" type="monotone" dataKey="gainRate" stroke="var(--color-gain)" name="Gain Rate %" strokeWidth={2} dot={{ fill: 'var(--color-gain)', r: 4 }} />
           </ComposedChart>
         </ResponsiveContainer>
@@ -69,7 +69,7 @@ function SegmentTable({ projects }: { projects: import('@/lib/types').ProjectRec
     <div className="rounded-xl border border-border bg-card shadow-sm overflow-hidden">
       <div className="p-5 pb-0">
         <h3 className="text-sm font-semibold text-foreground">Segment Summary Table</h3>
-        <p className="mb-4 text-xs text-muted-foreground">All metrics by market segment — which segments should you pursue?</p>
+        <p className="mb-4 text-xs text-muted-foreground">All metrics by market segment. Which segments should you pursue?</p>
       </div>
       <div className="overflow-x-auto">
         <table className="w-full text-sm">
@@ -78,7 +78,7 @@ function SegmentTable({ projects }: { projects: import('@/lib/types').ProjectRec
               <th className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground">Segment</th>
               <th className="px-4 py-3 text-right text-xs font-semibold text-muted-foreground">Projects</th>
               <th className="px-4 py-3 text-right text-xs font-semibold text-muted-foreground">Revenue</th>
-              <th className="px-4 py-3 text-right text-xs font-semibold text-muted-foreground">Avg Margin</th>
+              <th className="px-4 py-3 text-right text-xs font-semibold text-muted-foreground">Margin</th>
               <th className="px-4 py-3 text-right text-xs font-semibold text-muted-foreground">Gain</th>
               <th className="px-4 py-3 text-right text-xs font-semibold text-muted-foreground">Fade</th>
               <th className="px-4 py-3 text-right text-xs font-semibold text-muted-foreground">Gain Rate</th>
@@ -93,7 +93,7 @@ function SegmentTable({ projects }: { projects: import('@/lib/types').ProjectRec
                   <td className="px-4 py-3 font-medium">{m.segment}</td>
                   <td className="px-4 py-3 text-right text-muted-foreground">{m.projectCount}</td>
                   <td className="px-4 py-3 text-right">{formatCurrency(m.totalRevenue)}</td>
-                  <td className="px-4 py-3 text-right">{formatPercent(m.averageMargin)}</td>
+                  <td className="px-4 py-3 text-right">{formatPercent(m.weightedMargin)}</td>
                   <td className="px-4 py-3 text-right text-gain">{m.gainCount}</td>
                   <td className="px-4 py-3 text-right text-fade">{m.fadeCount}</td>
                   <td className="px-4 py-3 text-right">{formatPercent(gainRate)}</td>
@@ -123,7 +123,7 @@ function SegmentCostDriverInsights({ projects }: { projects: import('@/lib/types
         <h3 className="text-sm font-semibold text-foreground">Segment-Level Cost Driver Patterns</h3>
       </div>
       <p className="text-xs text-muted-foreground mb-4">
-        Which cost categories are driving fades in each segment — reveals segment-specific estimating gaps
+        Which cost categories are driving fades in each segment, to show segment-specific estimating gaps
       </p>
       <div className="space-y-3">
         {patterns.map((scp) => {
@@ -144,12 +144,12 @@ function SegmentCostDriverInsights({ projects }: { projects: import('@/lib/types
               </div>
               {scp.primaryDriverCategory === 'Labor' && scp.avgLaborHoursVariancePct > 0 && (
                 <p className="mt-1 text-[10px] text-muted-foreground">
-                  Avg labor hours variance: +{formatPercent(scp.avgLaborHoursVariancePct)} — suggests scope complexity is underestimated for {scp.segment.toLowerCase()} projects
+                  Avg labor hours variance: +{formatPercent(scp.avgLaborHoursVariancePct)} over budget, which suggests scope is underestimated for {scp.segment.toLowerCase()} projects
                 </p>
               )}
               {scp.primaryDriverCategory === 'Materials' && scp.avgMaterialsVariancePct > 0 && (
                 <p className="mt-1 text-[10px] text-muted-foreground">
-                  Avg materials variance: +{formatPercent(scp.avgMaterialsVariancePct)} — may indicate price escalation or incomplete scope definition in takeoffs
+                  Avg materials variance: +{formatPercent(scp.avgMaterialsVariancePct)} over budget, which may indicate price escalation or incomplete scope definition in takeoffs
                 </p>
               )}
             </div>
@@ -164,9 +164,9 @@ function SegmentStrategyCallout({ projects }: { projects: import('@/lib/types').
   const segments = calculateSegmentMetrics(projects);
   if (segments.length < 2) return null;
 
-  const best = segments.reduce((a, b) => (a.averageMargin > b.averageMargin ? a : b));
-  const worst = segments.reduce((a, b) => (a.averageMargin < b.averageMargin ? a : b));
-  const spread = best.averageMargin - worst.averageMargin;
+  const best = segments.reduce((a, b) => (a.weightedMargin > b.weightedMargin ? a : b));
+  const worst = segments.reduce((a, b) => (a.weightedMargin < b.weightedMargin ? a : b));
+  const spread = best.weightedMargin - worst.weightedMargin;
 
   return (
     <div className="rounded-xl border border-primary/20 bg-primary/5 p-5">
@@ -178,8 +178,8 @@ function SegmentStrategyCallout({ projects }: { projects: import('@/lib/types').
           <h3 className="text-sm font-semibold text-foreground">The Strategic Question Your Data Answers</h3>
           <p className="mt-1 text-xs text-muted-foreground leading-relaxed">
             Not all revenue is created equal. Your <span className="font-medium text-foreground">{best.segment}</span> work
-            delivers {formatPercent(best.averageMargin)} margins while <span className="font-medium text-foreground">{worst.segment}</span> runs
-            at {formatPercent(worst.averageMargin)} — a {formatPercent(spread)} spread. Every dollar of revenue you shift from
+            delivers {formatPercent(best.weightedMargin)} margins while <span className="font-medium text-foreground">{worst.segment}</span> runs
+            at {formatPercent(worst.weightedMargin)}, a {formatPercent(spread)} spread. Every dollar of revenue you shift from
             low-margin to high-margin segments drops {formatPercent(spread)} more to the bottom line.
             This is the data that should drive your pursuit strategy, staffing, and go/no-go decisions.
           </p>
@@ -202,7 +202,7 @@ export function MarketSegments() {
       <div>
         <h2 className="text-xl font-bold tracking-tight">Market Segments & Trends</h2>
         <p className="text-sm text-muted-foreground">
-          Performance across {segments.length} market segments — use these insights to drive your go-to-market strategy
+          Performance across {segments.length} market segments
         </p>
       </div>
 

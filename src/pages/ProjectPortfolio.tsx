@@ -36,7 +36,7 @@ export function ProjectPortfolio() {
       <div>
         <h2 className="text-xl font-bold tracking-tight">Project Portfolio</h2>
         <p className="text-sm text-muted-foreground">
-          {filteredProjects.length} projects — click any project to drill down into cost and margin details
+          {filteredProjects.length} projects. Click any project to drill down into cost and margin details
         </p>
       </div>
 

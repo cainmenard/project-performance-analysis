@@ -18,6 +18,14 @@ export function Header() {
               Project Performance Intelligence
             </h1>
           </div>
+          {state.dataSource === 'sample' && (
+            <span
+              className="hidden sm:inline-flex rounded-full border border-border bg-muted/50 px-2.5 py-0.5 text-[11px] font-medium text-muted-foreground"
+              title="Every company, project and person in the sample data is invented."
+            >
+              Sample data (synthetic)
+            </span>
+          )}
         </div>
 
         <div className="flex items-center gap-3">

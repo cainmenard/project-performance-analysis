@@ -1,0 +1,40 @@
+# Runs the same three checks as the README's "Develop" section on every pull request, so a
+# PR cannot be merged on a red test, a lint error or a build that would fail on Vercel.
+name: CI
+
+on:
+  pull_request:
+  # Also on the default branch after a merge: two PRs can each pass alone and break together.
+  push:
+    branches: [claude/project-performance-analysis-nkK1O]
+  workflow_dispatch:
+
+# Read-only token. Nothing here writes to the repo.
+permissions:
+  contents: read
+
+# A new push to the same PR cancels the run still going for the previous push.
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    name: Test, lint, build
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/setup-node@v6
+        with:
+          # Same major version Vercel builds with (Project Settings > Node.js Version: 24.x).
+          node-version: 24
+          cache: npm
+
+      # npm ci installs exactly what package-lock.json records and fails if the two disagree.
+      - run: npm ci
+      - run: npm test
+      - run: npm run lint
+      # tsc -b then vite build: the type check and the bundle Vercel would ship.
+      - run: npm run build

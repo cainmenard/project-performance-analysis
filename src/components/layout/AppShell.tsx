@@ -1,8 +1,18 @@
+import { Suspense } from 'react';
 import { Outlet, Navigate } from 'react-router-dom';
 import { Header } from './Header';
 import { Sidebar, MobileNav } from './Sidebar';
 import { FilterBar } from './FilterBar';
 import { useProjectData } from '@/hooks/useProjectData';
+
+function PageLoading() {
+  return (
+    <div className="flex items-center justify-center py-20" role="status" aria-live="polite">
+      <div className="h-6 w-6 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+      <span className="sr-only">Loading page</span>
+    </div>
+  );
+}
 
 export function AppShell() {
   const { state } = useProjectData();
@@ -29,7 +39,11 @@ export function AppShell() {
               </ul>
             </div>
           )}
-          <Outlet />
+          {/* Analysis pages are lazy chunks (see App.tsx). The boundary sits here, around
+              the page only, so navigation keeps the shell on screen while a chunk loads. */}
+          <Suspense fallback={<PageLoading />}>
+            <Outlet />
+          </Suspense>
         </main>
       </div>
     </div>

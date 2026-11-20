@@ -2,9 +2,40 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <link rel="icon" type="image/svg+xml" href="/vite.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Project Performance Intelligence</title>
+    <meta name="description" content="Gain/fade analysis for completed construction projects. Upload a completed-contracts CSV and see which jobs faded and which cost category drove each one." />
+    <meta name="author" content="Cain Menard" />
+    <link rel="canonical" href="https://project-performance-analysis.vercel.app/" />
+
+    <!-- favicon.ico first for browsers without SVG favicon support (Safari), then the SVG,
+         which modern browsers prefer. iOS uses the apple-touch-icon for home screen tiles. -->
+    <link rel="icon" href="/favicon.ico" sizes="48x48" />
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+    <!-- Browser chrome matches the page background in each theme. -->
+    <meta name="theme-color" content="#ffffff" media="(prefers-color-scheme: light)" />
+    <meta name="theme-color" content="#0d0b09" media="(prefers-color-scheme: dark)" />
+
+    <!-- Link previews (LinkedIn, Slack, iMessage read Open Graph; X reads the twitter tags).
+         Crawlers do not run JavaScript, so every route of this single-page app shows the
+         same preview. Image URLs must be absolute for most crawlers. -->
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="Project Performance Intelligence" />
+    <meta property="og:title" content="Project Performance Intelligence: which jobs faded, and what drove it" />
+    <meta property="og:description" content="Gain/fade analysis for completed construction projects. Upload a completed-contracts CSV and see which jobs faded and which cost category drove each one." />
+    <meta property="og:url" content="https://project-performance-analysis.vercel.app/" />
+    <meta property="og:image" content="https://project-performance-analysis.vercel.app/og-image.png" />
+    <meta property="og:image:type" content="image/png" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:image:alt" content="Project Performance Intelligence. Which jobs faded, and what drove it. A bar chart of gain and fade by job on the sample portfolio." />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="Project Performance Intelligence: which jobs faded, and what drove it" />
+    <meta name="twitter:description" content="Gain/fade analysis for completed construction projects. Upload a completed-contracts CSV and see which jobs faded and which cost category drove each one." />
+    <meta name="twitter:image" content="https://project-performance-analysis.vercel.app/og-image.png" />
+    <meta name="twitter:image:alt" content="Project Performance Intelligence. Which jobs faded, and what drove it. A bar chart of gain and fade by job on the sample portfolio." />
+
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link

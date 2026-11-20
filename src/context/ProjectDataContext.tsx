@@ -1,40 +1,20 @@
-import { useReducer, useCallback, type ReactNode } from 'react';
+import { useReducer, useCallback, useEffect, type ReactNode } from 'react';
 import type { ProjectRecord, FilterState } from '@/lib/types';
 import { sampleData } from '@/lib/sampleData';
+import { clearSnapshot, getSessionStorage, saveFilters, saveLoadedData } from '@/lib/sessionSnapshot';
 import { ProjectDataContext, type ProjectDataState } from './projectDataContextDef';
+import { initialState, NOT_KEPT_NOTE, resolveInitialState } from './initialState';
 
 type Action =
   | { type: 'LOAD_SAMPLE' }
   | { type: 'LOAD_CSV'; payload: ProjectRecord[]; warnings: string[] }
   | { type: 'SET_FILTERS'; payload: Partial<FilterState> }
+  | { type: 'NOT_KEPT' }
   | { type: 'RESET' };
 
-const emptyFilters: FilterState = {
-  divisions: [],
-  marketSegments: [],
-  years: [],
-  gainFade: [],
-  customers: [],
-  projectManagers: [],
-  estimators: [],
-};
-
-const initialState: ProjectDataState = {
-  projects: [],
-  isLoaded: false,
-  dataSource: 'none',
-  embed: false,
-  dataWarnings: [],
-  filters: emptyFilters,
-};
-
-// When the app is loaded inside the portfolio iframe (?embed=1), skip the
-// marketing landing page and boot straight into the analysis on sample data.
 function getInitialState(): ProjectDataState {
   if (typeof window === 'undefined') return initialState;
-  const isEmbed = new URLSearchParams(window.location.search).get('embed') === '1';
-  if (!isEmbed) return initialState;
-  return { projects: sampleData, isLoaded: true, dataSource: 'sample', embed: true, dataWarnings: [], filters: emptyFilters };
+  return resolveInitialState(window.location, getSessionStorage(), sampleData);
 }
 
 function reducer(state: ProjectDataState, action: Action): ProjectDataState {
@@ -45,6 +25,9 @@ function reducer(state: ProjectDataState, action: Action): ProjectDataState {
       return { ...state, projects: action.payload, isLoaded: true, dataSource: 'csv', dataWarnings: action.warnings, filters: initialState.filters };
     case 'SET_FILTERS':
       return { ...state, filters: { ...state.filters, ...action.payload } };
+    case 'NOT_KEPT':
+      if (state.dataWarnings.includes(NOT_KEPT_NOTE)) return state;
+      return { ...state, dataWarnings: [...state.dataWarnings, NOT_KEPT_NOTE] };
     case 'RESET':
       return initialState;
     default:
@@ -54,6 +37,27 @@ function reducer(state: ProjectDataState, action: Action): ProjectDataState {
 
 export function ProjectDataProvider({ children }: { children: ReactNode }) {
   const [state, dispatch] = useReducer(reducer, undefined, getInitialState);
+
+  // Keep the loaded portfolio for a refresh. This runs only when a file or the sample is
+  // loaded or cleared, not on filter changes, so a large upload is serialized once per load.
+  const { isLoaded, projects, dataSource, embed, dataWarnings } = state;
+  useEffect(() => {
+    const storage = getSessionStorage();
+    if (!isLoaded || dataSource === 'none') {
+      clearSnapshot(storage);
+      return;
+    }
+    const kept = saveLoadedData(storage, { projects, dataSource, embed, dataWarnings });
+    // Only an upload can be too large; the sample is stored as one word. When storage is
+    // missing altogether (blocked, sandboxed) there is nothing to warn about that the
+    // visitor can act on, so the note is limited to a refused write.
+    if (!kept && storage && dataSource === 'csv') dispatch({ type: 'NOT_KEPT' });
+  }, [isLoaded, projects, dataSource, embed, dataWarnings]);
+
+  const { filters } = state;
+  useEffect(() => {
+    if (isLoaded) saveFilters(getSessionStorage(), filters);
+  }, [isLoaded, filters]);
 
   const loadSampleData = useCallback(() => dispatch({ type: 'LOAD_SAMPLE' }), []);
   const loadCsvData = useCallback((data: ProjectRecord[], warnings: string[] = []) => dispatch({ type: 'LOAD_CSV', payload: data, warnings }), []);
